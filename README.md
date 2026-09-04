@@ -1,36 +1,90 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Designers Winter Arc
 
-## Getting Started
+A 12-week UX/UI/Product track for designers, built with Next.js (App Router), TypeScript, Tailwind CSS, and Supabase.
 
-First, run the development server:
+## Stack
+
+- **Next.js 16** (App Router, Server Actions, Turbopack)
+- **Tailwind CSS v4**
+- **Supabase**, Postgres, Auth (email/password + Google), Row Level Security
+- **Google Sans Flex** for headings and body text (`next/font/google`)
+
+## Setup
+
+### 1. Install dependencies
+
+```bash
+npm install
+```
+
+### 2. Create a Supabase project
+
+Create a project at [supabase.com](https://supabase.com), then copy your Project URL and anon/public key (**Project Settings → API**) into `.env.local`:
+
+```bash
+cp .env.local.example .env.local
+```
+
+```
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+```
+
+### 3. Apply the database schema
+
+This repo uses the Supabase CLI's migration files in `supabase/migrations/`. Link your project and push:
+
+```bash
+npx supabase login
+npx supabase link --project-ref your-project-ref
+npx supabase db push
+```
+
+This creates the schema (`arcs`, `weeks`, `tasks`, `user_arcs`, `task_entries`, RLS policies) and seeds the pre-built 12-week Winter Arc plan.
+
+If you'd rather run the SQL by hand, paste the files in `supabase/migrations/` into the Supabase SQL Editor in filename order (0001 through 0005).
+
+### 4. Enable email auth (and optionally Google)
+
+Email/password auth is on by default. To enable **Google sign-in**:
+
+1. In Google Cloud Console, create an OAuth 2.0 Client ID (Web application).
+2. Add `https://<your-project-ref>.supabase.co/auth/v1/callback` as an authorized redirect URI.
+3. In Supabase Dashboard → **Authentication → Providers → Google**, paste the Client ID and Secret and enable the provider.
+4. In Supabase Dashboard → **Authentication → URL Configuration**, add your app's origin (e.g. `http://localhost:3000`, and your Vercel URL once deployed) to Redirect URLs.
+
+### 5. Run the dev server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Visit `http://localhost:3000`, the whole app lives on this one page. Guests see a read-only preview of the Winter Arc; signing in (via the popup, opened from "Join" in the header or sidebar) automatically joins the arc, since there's only one.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## App structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+There's a single route (`/`) plus the OAuth callback (`/auth/callback`), no separate dashboard/join/login/profile pages. `src/components/home/HomeShell.tsx` is the client-side shell: it holds which of the three tabs (Overview, Daily, Weekly) is active and whether the auth or profile popup is open. `src/app/page.tsx` fetches everything server-side via `getHomeData()` (`src/lib/arc-data.ts`) and passes it down as props.
 
-## Learn More
+- **Overview**, a GitHub-style activity heatmap and stats (total repetitions, completion rate, longest day-streak), all derived from real `task_entries` rows, plus today's tasks, this week's deliverables, and a per-category progress breakdown.
+- **Daily**, the current week's daily tasks (Days 1–6; Day 7 is always rest), grouped by day.
+- **Weekly**, the current week's connection goal and weekly deliverables.
+- Guests (not signed in, or signed in but not joined) see a read-only preview of each tab, the first day or first couple of deliverables visible, the rest blurred with a "Join to see the rest" prompt; visible items are inert (`TaskCard`'s `readOnly` prop) until they join.
 
-To learn more about Next.js, take a look at the following resources:
+Signing in doubles as joining: `signInAction`, `signUpAction`, and the `/auth/callback` route (covers Google OAuth and email-confirmation links) all call `ensureJoined()` right after establishing a session. All mutations live in `src/lib/actions.ts`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Data model
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `arcs`, the challenge program (the seeded Winter Arc: 12 weeks, starting 2026-10-01, running through Dec 31 with an 8-day buffer after Week 12)
+- `weeks`, per-week metadata: `is_rest_week` (Week 7 has none), `connection_goal` (how many connection-task units count as done that week)
+- `tasks`, one row per task; `day_number` 1–7 for a daily task, `null` for a weekly deliverable. `category` is one of `ui_practice`, `connection`, `learn_explain`, `rotating_lens`, `build_public`, `reflection`. `requires_proof` marks tasks that need a submitted link/note instead of a plain tick. `weight` lets one task count for more than one unit (e.g. Week 12's "Reconnect, Twice")
+- `user_arcs`, a user's membership in an arc (join date, status)
+- `task_entries`, one row per completed/attempted task: `completed`, optional `note` (the submitted proof for `requires_proof` tasks)
 
-## Deploy on Vercel
+All tables are RLS-protected, every read/write on `user_arcs` and `task_entries` is scoped to `auth.uid()`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Deploying to Vercel
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Push this repo to GitHub.
+2. Import it in Vercel.
+3. Add the two `NEXT_PUBLIC_SUPABASE_*` env vars in Vercel project settings.
+4. Add the deployed URL to Supabase's Redirect URLs (Authentication → URL Configuration) for OAuth to work in production.
