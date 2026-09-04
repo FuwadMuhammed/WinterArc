@@ -5,12 +5,15 @@ import { useRouter } from "next/navigation";
 import { Logo } from "@/components/Logo";
 import { signInAction, signUpAction, signInWithGoogleAction } from "@/lib/actions";
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export function AuthModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [fieldError, setFieldError] = useState<{ email?: string; password?: string }>({});
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -29,6 +32,21 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
     e.preventDefault();
     setError(null);
     setMessage(null);
+
+    const nextFieldError: { email?: string; password?: string } = {};
+    if (!email.trim()) {
+      nextFieldError.email = "Please fill in this field.";
+    } else if (!EMAIL_PATTERN.test(email)) {
+      nextFieldError.email = "Enter a valid email address.";
+    }
+    if (!password) {
+      nextFieldError.password = "Please fill in this field.";
+    } else if (password.length < 6) {
+      nextFieldError.password = "Must be at least 6 characters.";
+    }
+    setFieldError(nextFieldError);
+    if (nextFieldError.email || nextFieldError.password) return;
+
     startTransition(async () => {
       const action = mode === "signin" ? signInAction : signUpAction;
       const result = await action(email, password);
@@ -89,24 +107,37 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
           </button>
         </div>
 
-        <form onSubmit={submit} className="mt-4 space-y-3">
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Email"
-            className="w-full rounded-xl border border-border bg-page px-4 py-3 text-sm text-ink placeholder:text-ink-faint outline-none focus:border-primary"
-          />
-          <input
-            type="password"
-            required
-            minLength={6}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password"
-            className="w-full rounded-xl border border-border bg-page px-4 py-3 text-sm text-ink placeholder:text-ink-faint outline-none focus:border-primary"
-          />
+        <form onSubmit={submit} noValidate className="mt-4 space-y-3">
+          <div>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (fieldError.email) setFieldError((f) => ({ ...f, email: undefined }));
+              }}
+              placeholder="Email"
+              className={`w-full rounded-xl border bg-page px-4 py-3 text-sm text-ink placeholder:text-ink-faint outline-none focus:border-primary ${
+                fieldError.email ? "border-red" : "border-border"
+              }`}
+            />
+            {fieldError.email && <FieldTooltip message={fieldError.email} />}
+          </div>
+          <div>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (fieldError.password) setFieldError((f) => ({ ...f, password: undefined }));
+              }}
+              placeholder="Password"
+              className={`w-full rounded-xl border bg-page px-4 py-3 text-sm text-ink placeholder:text-ink-faint outline-none focus:border-primary ${
+                fieldError.password ? "border-red" : "border-border"
+              }`}
+            />
+            {fieldError.password && <FieldTooltip message={fieldError.password} />}
+          </div>
 
           {error && <p className="text-sm text-red">{error}</p>}
           {message && <p className="text-sm text-green">{message}</p>}
@@ -141,6 +172,28 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
         </form>
       </div>
     </div>
+  );
+}
+
+function FieldTooltip({ message }: { message: string }) {
+  return (
+    <div className="tooltip-enter relative mt-2 w-fit">
+      <div className="absolute -top-1 left-4 h-2 w-2 rotate-45 border-l border-t border-red/20 bg-red-soft" />
+      <div className="flex items-center gap-1.5 rounded-lg border border-red/20 bg-red-soft px-3 py-1.5 text-xs font-medium text-red shadow-sm">
+        <WarningIcon />
+        {message}
+      </div>
+    </div>
+  );
+}
+
+function WarningIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 20 20" fill="none" aria-hidden="true" className="shrink-0">
+      <circle cx="10" cy="10" r="9" fill="currentColor" />
+      <rect x="9" y="5" width="2" height="6" rx="1" fill="var(--color-red-soft)" />
+      <rect x="9" y="13" width="2" height="2" rx="1" fill="var(--color-red-soft)" />
+    </svg>
   );
 }
 
