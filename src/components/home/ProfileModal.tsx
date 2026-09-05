@@ -3,12 +3,13 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ConfirmSheet } from "@/components/ConfirmSheet";
-import { resetArcProgress, leaveArc, signOutAction } from "@/lib/actions";
+import { resetArcProgress, leaveArc, signOutAction, updatePasswordAction } from "@/lib/actions";
 
 export function ProfileModal({
   open,
   onClose,
   userEmail,
+  userAvatarUrl,
   currentWeek,
   durationWeeks,
   joinedLabel,
@@ -18,6 +19,7 @@ export function ProfileModal({
   open: boolean;
   onClose: () => void;
   userEmail: string | null;
+  userAvatarUrl: string | null;
   currentWeek: number;
   durationWeeks: number;
   joinedLabel: string;
@@ -26,6 +28,12 @@ export function ProfileModal({
 }) {
   const [pending, startTransition] = useTransition();
   const [sheet, setSheet] = useState<"reset" | "leave" | null>(null);
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [pwError, setPwError] = useState<string | null>(null);
+  const [pwSuccess, setPwSuccess] = useState(false);
+  const [pwPending, startPwTransition] = useTransition();
   const router = useRouter();
 
   useEffect(() => {
@@ -64,6 +72,39 @@ export function ProfileModal({
     });
   }
 
+  function toggleChangePassword() {
+    setChangingPassword((v) => !v);
+    setNewPassword("");
+    setConfirmPassword("");
+    setPwError(null);
+    setPwSuccess(false);
+  }
+
+  function doChangePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setPwError(null);
+
+    if (newPassword.length < 6) {
+      setPwError("Must be at least 6 characters.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPwError("Passwords don't match.");
+      return;
+    }
+
+    startPwTransition(async () => {
+      const result = await updatePasswordAction(newPassword);
+      if (result.error) {
+        setPwError(result.error);
+        return;
+      }
+      setPwSuccess(true);
+      setNewPassword("");
+      setConfirmPassword("");
+    });
+  }
+
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center sm:items-center">
       <button
@@ -80,8 +121,17 @@ export function ProfileModal({
         <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-border sm:hidden" />
 
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-ink text-base font-medium text-white">
-            {(userEmail ?? "?").slice(0, 2).toUpperCase()}
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-ink text-base font-medium text-white">
+            {userAvatarUrl ? (
+              <img
+                src={userAvatarUrl}
+                alt=""
+                referrerPolicy="no-referrer"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              (userEmail ?? "?").slice(0, 2).toUpperCase()
+            )}
           </div>
           <div className="min-w-0">
             <p className="truncate text-sm font-medium text-ink">{userEmail}</p>
@@ -97,7 +147,45 @@ export function ProfileModal({
           <p className="text-xs text-ink-muted">Status: {status}</p>
         </div>
 
-        <div className="mt-5 space-y-2">
+        <div className="mt-5">
+          <button
+            type="button"
+            onClick={toggleChangePassword}
+            className="w-full rounded-full border border-border bg-panel py-3 text-sm font-medium text-ink transition-check hover:border-primary"
+          >
+            {changingPassword ? "Cancel" : "Change password"}
+          </button>
+
+          {changingPassword && (
+            <form onSubmit={doChangePassword} noValidate className="mt-3 space-y-2">
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="New password"
+                className="w-full rounded-xl border border-border bg-page px-4 py-3 text-sm text-ink placeholder:text-ink-faint outline-none focus:border-primary"
+              />
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirm new password"
+                className="w-full rounded-xl border border-border bg-page px-4 py-3 text-sm text-ink placeholder:text-ink-faint outline-none focus:border-primary"
+              />
+              {pwError && <p className="text-sm text-red">{pwError}</p>}
+              {pwSuccess && <p className="text-sm text-green">Password updated.</p>}
+              <button
+                type="submit"
+                disabled={pwPending}
+                className="w-full rounded-full bg-primary py-3 text-sm font-semibold text-white transition-check hover:opacity-90 disabled:opacity-60"
+              >
+                {pwPending ? "Saving…" : "Save new password"}
+              </button>
+            </form>
+          )}
+        </div>
+
+        <div className="mt-3 space-y-2">
           <button
             type="button"
             disabled={pending}

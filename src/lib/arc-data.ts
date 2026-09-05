@@ -6,6 +6,7 @@ import type { Arc, Task, TaskEntry, UserArc, Week } from "@/lib/database.types";
 export type HomeData = {
   userId: string | null;
   userEmail: string | null;
+  userAvatarUrl: string | null;
   arc: Arc;
   weeks: Week[];
   tasks: Task[];
@@ -63,6 +64,9 @@ export const getHomeData = cache(async (): Promise<HomeData> => {
   return {
     userId: user?.id ?? null,
     userEmail: user?.email ?? null,
+    userAvatarUrl: (user?.user_metadata?.avatar_url ?? user?.user_metadata?.picture ?? null) as
+      | string
+      | null,
     arc,
     weeks: weeks as Week[],
     tasks: tasks as Task[],

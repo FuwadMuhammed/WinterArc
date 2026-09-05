@@ -10,12 +10,14 @@ export function SiteHeader({
   joined,
   loggedIn,
   userEmail,
+  userAvatarUrl,
   onOpenAuth,
   onOpenProfile,
 }: {
   joined: boolean;
   loggedIn: boolean;
   userEmail: string | null;
+  userAvatarUrl: string | null;
   onOpenAuth: () => void;
   onOpenProfile: () => void;
 }) {
@@ -54,9 +56,18 @@ export function SiteHeader({
               type="button"
               onClick={onOpenProfile}
               aria-label="Profile"
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-ink text-xs font-medium text-white"
+              className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-ink text-xs font-medium text-white"
             >
-              {initials}
+              {userAvatarUrl ? (
+                <img
+                  src={userAvatarUrl}
+                  alt=""
+                  referrerPolicy="no-referrer"
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                initials
+              )}
             </button>
           ) : (
             <button

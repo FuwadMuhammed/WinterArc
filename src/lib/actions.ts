@@ -31,6 +31,16 @@ export async function signUpAction(email: string, password: string): Promise<Aut
 
   if (error) return { error: error.message };
 
+  if (data.user && data.user.identities?.length === 0) {
+    // Supabase returns a user object with no identities (instead of an error)
+    // when the email already has an account, to avoid leaking which emails
+    // are registered. No confirmation email is sent in this case.
+    return {
+      error:
+        "An account with this email already exists. Try signing in, or use \"Forgot password?\" if you don't remember your password.",
+    };
+  }
+
   if (data.session && data.user) {
     // Email confirmation is off for this project, already signed in.
     await ensureJoined(supabase, data.user.id);
@@ -60,6 +70,38 @@ export async function signOutAction() {
   const supabase = await createClient();
   await supabase.auth.signOut();
   revalidatePath("/");
+}
+
+export async function resendConfirmationAction(email: string): Promise<AuthResult> {
+  const origin = (await headers()).get("origin");
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resend({
+    type: "signup",
+    email,
+    options: { emailRedirectTo: `${origin}/auth/callback` },
+  });
+
+  if (error) return { error: error.message };
+  return { error: null, message: "Confirmation email resent. Check your inbox." };
+}
+
+export async function requestPasswordResetAction(email: string): Promise<AuthResult> {
+  const origin = (await headers()).get("origin");
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${origin}/auth/callback?next=/auth/reset-password`,
+  });
+
+  if (error) return { error: error.message };
+  return { error: null, message: "Check your email for a password reset link." };
+}
+
+export async function updatePasswordAction(password: string): Promise<AuthResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.auth.updateUser({ password });
+
+  if (error) return { error: error.message };
+  return { error: null };
 }
 
 /** For a user who's already signed in but hasn't joined yet. */

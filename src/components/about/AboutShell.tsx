@@ -101,7 +101,7 @@ function QrIcon() {
 }
 
 export function AboutShell(data: HomeData) {
-  const { arc, userArc, userEmail } = data;
+  const { arc, userArc, userEmail, userAvatarUrl } = data;
   const joined = userArc !== null;
   const loggedIn = data.userId !== null;
 
@@ -124,6 +124,7 @@ export function AboutShell(data: HomeData) {
         joined={joined}
         loggedIn={loggedIn}
         userEmail={userEmail}
+        userAvatarUrl={userAvatarUrl}
         onOpenAuth={() => setAuthOpen(true)}
         onOpenProfile={() => setProfileOpen(true)}
       />
@@ -292,6 +293,7 @@ export function AboutShell(data: HomeData) {
           open={profileOpen}
           onClose={() => setProfileOpen(false)}
           userEmail={userEmail}
+          userAvatarUrl={userAvatarUrl}
           currentWeek={currentWeek}
           durationWeeks={arc.duration_weeks}
           joinedLabel={joinedLabel}
