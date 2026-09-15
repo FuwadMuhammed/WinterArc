@@ -3,33 +3,33 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { joinArcAction } from "@/lib/actions";
-import { getArcEndDate, getHeatmapRange } from "@/lib/arc-logic";
+import { getArcEndDate, getArcStartDate } from "@/lib/arc-logic";
 import { REAL_CATEGORIES } from "@/lib/constants";
-import type { Arc } from "@/lib/database.types";
+import type { Arc, UserArc } from "@/lib/database.types";
+
+const DATE_FORMAT: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", year: "numeric" };
 
 export function Sidebar({
   arc,
-  joined,
+  userArc,
   loggedIn,
   onOpenAuth,
 }: {
   arc: Arc;
-  joined: boolean;
+  userArc: UserArc | null;
   loggedIn: boolean;
   onOpenAuth: () => void;
 }) {
   const [pending, startTransition] = useTransition();
   const router = useRouter();
+  const joined = userArc !== null;
 
-  const startLabel = getHeatmapRange(arc).start.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-  const endLabel = getArcEndDate(arc).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  });
+  const startLabel = joined
+    ? getArcStartDate(userArc).toLocaleDateString("en-US", DATE_FORMAT)
+    : "The day you join";
+  const endLabel = joined
+    ? getArcEndDate(arc, userArc).toLocaleDateString("en-US", DATE_FORMAT)
+    : `${arc.duration_weeks} weeks later`;
 
   function handleJoinClick() {
     if (loggedIn) {

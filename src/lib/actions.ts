@@ -139,6 +139,7 @@ export async function setTaskEntry(taskId: string, completed: boolean, note: str
 
 // --- Profile -----------------------------------------------------------------
 
+/** Clears every entry and restarts the member's timeline, so Day 1 is today again. */
 export async function resetArcProgress() {
   const { userArc } = await getHomeData();
   if (!userArc) throw new Error("Not joined");
@@ -146,6 +147,12 @@ export async function resetArcProgress() {
 
   const { error } = await supabase.from("task_entries").delete().eq("user_arc_id", userArc.id);
   if (error) throw error;
+
+  const { error: restartError } = await supabase
+    .from("user_arcs")
+    .update({ joined_at: new Date().toISOString() })
+    .eq("id", userArc.id);
+  if (restartError) throw restartError;
   revalidatePath("/");
 }
 

@@ -1,16 +1,22 @@
-import type { Arc, Task, TaskEntry } from "@/lib/database.types";
+import type { Arc, Task, TaskEntry, UserArc } from "@/lib/database.types";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+type Duration = Pick<Arc, "duration_weeks">;
+/** null for guests, who preview the arc as if they'd started today. */
+type Membership = Pick<UserArc, "joined_at"> | null;
 
 function startOfDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-/** Parses a date-only string ("2026-09-01") as a local calendar date, avoiding
- * the UTC-midnight round-trip that shifts it a day in non-UTC timezones. */
-function parseDateOnly(dateStr: string): Date {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  return new Date(y, m - 1, d);
+function addDays(date: Date, days: number): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+}
+
+/** Whole calendar days from `a` to `b`, immune to DST shifting a day by an hour. */
+function daysBetween(a: Date, b: Date): number {
+  const utcA = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
+  const utcB = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
+  return Math.round((utcB - utcA) / 86_400_000);
 }
 
 function dateKey(date: Date): string {
@@ -20,81 +26,37 @@ function dateKey(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-/** 1-indexed current week of the plan, clamped to [1, duration_weeks]. Once
- * the plan's numbered weeks are over (the buffer period), this stays at the
- * last week, check `isBufferPeriod` to detect that. */
-export function getCurrentWeek(arc: Pick<Arc, "start_date" | "duration_weeks">, now = new Date()): number {
-  const start = parseDateOnly(arc.start_date);
-  const today = startOfDay(now);
-  const daysSince = Math.floor((today.getTime() - start.getTime()) / DAY_MS);
-  const week = Math.floor(daysSince / 7) + 1;
-  return Math.min(Math.max(week, 1), arc.duration_weeks);
+// --- Timeline ----------------------------------------------------------------
+// Every member runs their own arc: Day 1 is the local calendar day they
+// joined, and the arc lasts exactly duration_weeks * 7 days from there.
+
+export function getArcStartDate(userArc: Membership, now = new Date()): Date {
+  return startOfDay(userArc ? new Date(userArc.joined_at) : now);
 }
 
-/** 1-indexed current day-of-week within the plan (1-7), clamped to 1 before
- * the plan starts. */
-export function getCurrentDay(arc: Pick<Arc, "start_date">, now = new Date()): number {
-  const start = parseDateOnly(arc.start_date);
-  const today = startOfDay(now);
-  if (today.getTime() < start.getTime()) return 1;
-  const daysSince = Math.floor((today.getTime() - start.getTime()) / DAY_MS);
-  return (daysSince % 7) + 1;
+export function getArcEndDate(arc: Duration, userArc: Membership, now = new Date()): Date {
+  return addDays(getArcStartDate(userArc, now), arc.duration_weeks * 7 - 1);
 }
 
-export function getWeekDateRange(
-  arc: Pick<Arc, "start_date">,
-  weekNumber: number,
-): { start: Date; end: Date } {
-  const start = parseDateOnly(arc.start_date);
-  const weekStart = new Date(start.getTime() + (weekNumber - 1) * 7 * DAY_MS);
-  const weekEnd = new Date(weekStart.getTime() + 6 * DAY_MS);
-  return { start: weekStart, end: weekEnd };
+/** Clamped at 0 so clock skew between the server that stamped joined_at and
+ * the viewer's device can't put a brand-new member before their own Day 1. */
+function daysIntoArc(userArc: Membership, now: Date): number {
+  return Math.max(0, daysBetween(getArcStartDate(userArc, now), startOfDay(now)));
 }
 
-/** The arc's displayed end date: December 31 of its start year. */
-export function getArcEndDate(arc: Pick<Arc, "start_date" | "duration_weeks">): Date {
-  const start = parseDateOnly(arc.start_date);
-  return new Date(start.getFullYear(), 11, 31);
+/** 1-indexed current week, clamped to the last week once the arc is over. */
+export function getCurrentWeek(arc: Duration, userArc: Membership, now = new Date()): number {
+  const week = Math.floor(daysIntoArc(userArc, now) / 7) + 1;
+  return Math.min(week, arc.duration_weeks);
 }
 
-/** True once the plan's numbered weeks are done but the arc hasn't reached
- * its Dec 31 end yet, the buffer period (e.g. Dec 24 - Dec 31). */
-export function isBufferPeriod(
-  arc: Pick<Arc, "start_date" | "duration_weeks">,
-  now = new Date(),
-): boolean {
-  const start = parseDateOnly(arc.start_date);
-  const planEnd = new Date(start.getTime() + arc.duration_weeks * 7 * DAY_MS - DAY_MS);
-  const today = startOfDay(now);
-  return today.getTime() > planEnd.getTime() && today.getTime() <= getArcEndDate(arc).getTime();
+/** 1-indexed day within the current week (1-7). */
+export function getCurrentDay(userArc: Membership, now = new Date()): number {
+  return (daysIntoArc(userArc, now) % 7) + 1;
 }
 
-export function isArcFinished(arc: Pick<Arc, "start_date" | "duration_weeks">, now = new Date()): boolean {
-  return startOfDay(now).getTime() > getArcEndDate(arc).getTime();
-}
-
-/** Displayed heatmap window: every day from October 1 through the arc's end
- * date (clipped only if the arc itself starts after October 1). */
-export function getHeatmapRange(
-  arc: Pick<Arc, "start_date" | "duration_weeks">,
-): { start: Date; end: Date } {
-  const arcStart = parseDateOnly(arc.start_date);
-  const oct1 = new Date(arcStart.getFullYear(), 9, 1);
-  return {
-    start: arcStart.getTime() > oct1.getTime() ? arcStart : oct1,
-    end: getArcEndDate(arc),
-  };
-}
-
-export function daysUntil(dateStr: string, now = new Date()): number {
-  const target = parseDateOnly(dateStr);
-  const today = startOfDay(now);
-  return Math.round((target.getTime() - today.getTime()) / DAY_MS);
-}
-
-export function formatDateRange(start: Date, end: Date): string {
-  const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  return `${fmt(start)} – ${fmt(end)}`;
+export function isArcFinished(arc: Duration, userArc: Membership, now = new Date()): boolean {
+  return daysIntoArc(userArc, now) >= arc.duration_weeks * 7;
 }
 
 // --- Task progress -----------------------------------------------------------
@@ -136,23 +98,20 @@ export type HeatmapDay = { date: string; weekday: number; count: number };
  * `task_entries`, never fabricated.
  */
 export function computeHeatmap(
-  items: { created_at: string; weight: number }[],
+  items: { completed_at: string; weight: number }[],
   startDate: Date,
   endDate: Date,
 ): HeatmapDay[] {
-  const start = startOfDay(startDate);
-  const end = startOfDay(endDate);
-
   const byDay = new Map<string, number>();
   for (const item of items) {
     if (item.weight <= 0) continue;
-    const key = dateKey(startOfDay(new Date(item.created_at)));
+    const key = dateKey(startOfDay(new Date(item.completed_at)));
     byDay.set(key, (byDay.get(key) ?? 0) + item.weight);
   }
 
   const days: HeatmapDay[] = [];
-  for (let t = start.getTime(); t <= end.getTime(); t += DAY_MS) {
-    const d = new Date(t);
+  const end = startOfDay(endDate);
+  for (let d = startOfDay(startDate); d.getTime() <= end.getTime(); d = addDays(d, 1)) {
     days.push({ date: dateKey(d), weekday: d.getDay(), count: byDay.get(dateKey(d)) ?? 0 });
   }
   return days;

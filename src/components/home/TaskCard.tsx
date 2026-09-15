@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import confetti from "canvas-confetti";
 import { setTaskEntry } from "@/lib/actions";
@@ -55,6 +55,14 @@ export function TaskCard({
   const router = useRouter();
   const checkRef = useRef<HTMLButtonElement>(null);
   const submitRef = useRef<HTMLButtonElement>(null);
+  const toggleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestCompletedRef = useRef(completed);
+
+  useEffect(() => {
+    return () => {
+      if (toggleDebounceRef.current) clearTimeout(toggleDebounceRef.current);
+    };
+  }, []);
 
   const label = CATEGORY_LABEL[task.category] ?? task.category;
   const emoji = CATEGORY_EMOJI[label] ?? "✅";
@@ -68,14 +76,23 @@ export function TaskCard({
     };
   }
 
+  /** Instant, unblocked toggling: the checkbox never waits on the network.
+   * Rapid clicks only update local state; the write to the server is
+   * debounced so a flurry of clicks collapses into one request for
+   * whatever the final state ends up being. */
   function toggle() {
     const next = !completed;
     setCompleted(next);
+    latestCompletedRef.current = next;
     if (next) celebrate(originFor(checkRef.current));
-    startTransition(async () => {
-      await setTaskEntry(task.id, next, note);
-      router.refresh();
-    });
+
+    if (toggleDebounceRef.current) clearTimeout(toggleDebounceRef.current);
+    toggleDebounceRef.current = setTimeout(() => {
+      startTransition(async () => {
+        await setTaskEntry(task.id, latestCompletedRef.current, note);
+        router.refresh();
+      });
+    }, 500);
   }
 
   function submitProof() {
@@ -156,7 +173,7 @@ export function TaskCard({
           ref={checkRef}
           type="button"
           onClick={toggle}
-          disabled={readOnly || pending}
+          disabled={readOnly}
           aria-pressed={completed}
           aria-label={completed ? `Mark ${task.heading} incomplete` : `Mark ${task.heading} complete`}
           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full shadow-sm transition-check disabled:cursor-not-allowed ${

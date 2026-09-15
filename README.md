@@ -42,7 +42,7 @@ npx supabase db push
 
 This creates the schema (`arcs`, `weeks`, `tasks`, `user_arcs`, `task_entries`, RLS policies) and seeds the pre-built 12-week Winter Arc plan.
 
-If you'd rather run the SQL by hand, paste the files in `supabase/migrations/` into the Supabase SQL Editor in filename order (0001 through 0005).
+If you'd rather run the SQL by hand, paste the files in `supabase/migrations/` into the Supabase SQL Editor in filename order (0001 through 0006).
 
 ### 4. Enable email auth (and optionally Google)
 
@@ -74,7 +74,7 @@ Signing in doubles as joining: `signInAction`, `signUpAction`, and the `/auth/ca
 
 ## Data model
 
-- `arcs`, the challenge program (the seeded Winter Arc: 12 weeks, starting 2026-10-01, running through Dec 31 with an 8-day buffer after Week 12)
+- `arcs`, the challenge program (the seeded Winter Arc: 12 weeks). Each member runs their own timeline: Day 1 is the day they join (`user_arcs.joined_at`), and the arc ends exactly 12 weeks later
 - `weeks`, per-week metadata: `is_rest_week` (Week 7 has none), `connection_goal` (how many connection-task units count as done that week)
 - `tasks`, one row per task; `day_number` 1–7 for a daily task, `null` for a weekly deliverable. `category` is one of `ui_practice`, `connection`, `learn_explain`, `rotating_lens`, `build_public`, `reflection`. `requires_proof` marks tasks that need a submitted link/note instead of a plain tick. `weight` lets one task count for more than one unit (e.g. Week 12's "Reconnect, Twice")
 - `user_arcs`, a user's membership in an arc (join date, status)

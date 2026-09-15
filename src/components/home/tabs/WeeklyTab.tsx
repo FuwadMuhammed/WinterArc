@@ -1,26 +1,47 @@
-import { entryFor, getConnectionProgress, getCurrentWeek } from "@/lib/arc-logic";
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { entryFor, getConnectionProgress, getCurrentWeek, isArcFinished } from "@/lib/arc-logic";
 import { TaskCard } from "@/components/home/TaskCard";
 import { BlurredTeaser } from "@/components/home/BlurredTeaser";
-import type { Arc, Task, TaskEntry, Week } from "@/lib/database.types";
+import { ShareModal } from "@/components/home/ShareModal";
+import { ArcFinishedNotice } from "@/components/home/ArcFinishedNotice";
+import { weeklyShareText } from "@/lib/constants";
+import type { Arc, Task, TaskEntry, UserArc, Week } from "@/lib/database.types";
 
 export function WeeklyTab({
   arc,
   weeks,
   tasks,
   entries,
-  joined,
+  userArc,
   onOpenAuth,
 }: {
   arc: Arc;
   weeks: Week[];
   tasks: Task[];
   entries: TaskEntry[];
-  joined: boolean;
+  userArc: UserArc | null;
   onOpenAuth: () => void;
 }) {
-  const weekNumber = getCurrentWeek(arc);
+  const joined = userArc !== null;
+  const finished = joined && isArcFinished(arc, userArc);
+  const locked = !joined || finished;
+  const weekNumber = getCurrentWeek(arc, userArc);
   const week = weeks.find((w) => w.week_number === weekNumber);
   const weekTasks = tasks.filter((t) => t.week_number === weekNumber);
+
+  const deliverables = weekTasks.filter((t) => t.day_number === null);
+  const completedDeliverables = joined
+    ? deliverables.filter((t) => entryFor(entries, t.id)?.completed).length
+    : 0;
+  const [shareOpen, setShareOpen] = useState(false);
+  const prevCompletedRef = useRef(completedDeliverables);
+
+  useEffect(() => {
+    if (completedDeliverables > prevCompletedRef.current) setShareOpen(true);
+    prevCompletedRef.current = completedDeliverables;
+  }, [completedDeliverables]);
 
   if (week?.is_rest_week) {
     return (
@@ -33,7 +54,6 @@ export function WeeklyTab({
     );
   }
 
-  const deliverables = weekTasks.filter((t) => t.day_number === null);
   const connection = getConnectionProgress(weekTasks, entries, week?.connection_goal ?? null);
   const visibleCount = Math.min(2, deliverables.length);
   const visible = deliverables.slice(0, visibleCount);
@@ -41,6 +61,7 @@ export function WeeklyTab({
 
   return (
     <div className="space-y-4">
+      {finished && <ArcFinishedNotice />}
       <div className="rounded-3xl border border-border bg-panel px-6 py-5">
         <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">
           Connection goal - Week {weekNumber}
@@ -65,7 +86,7 @@ export function WeeklyTab({
         ) : (
           <div className="space-y-2 px-4 pb-4">
             {visible.map((t, i) => (
-              <TaskCard key={t.id} task={t} entry={entryFor(entries, t.id)} index={i} readOnly={!joined} />
+              <TaskCard key={t.id} task={t} entry={entryFor(entries, t.id)} index={i} readOnly={locked} />
             ))}
             {hidden.length > 0 &&
               (joined ? (
@@ -75,7 +96,7 @@ export function WeeklyTab({
                     task={t}
                     entry={entryFor(entries, t.id)}
                     index={visible.length + i}
-                    readOnly={!joined}
+                    readOnly={locked}
                   />
                 ))
               ) : (
@@ -87,7 +108,7 @@ export function WeeklyTab({
                         task={t}
                         entry={entryFor(entries, t.id)}
                         index={visible.length + i}
-                        readOnly={!joined}
+                        readOnly={locked}
                       />
                     ))}
                   </div>
@@ -96,6 +117,15 @@ export function WeeklyTab({
           </div>
         )}
       </div>
+
+      <ShareModal
+        key={weekNumber}
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        heading={`Week ${weekNumber} deliverable shipped!`}
+        message="You just shipped this week's deliverable. Share your progress and inspire someone else to start."
+        shareText={weeklyShareText(arc.name, weekNumber)}
+      />
     </div>
   );
 }

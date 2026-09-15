@@ -2,6 +2,44 @@ import type { TaskCategory } from "@/lib/database.types";
 
 export const WINTER_ARC_ID = "11111111-1111-1111-1111-111111111111";
 
+export const SITE_URL = "https://winter-arc-wheat.vercel.app";
+
+export const SITE_NAME = "Winter Arc";
+export const SITE_TITLE = "Winter Arc – A 12-Week Winter Challenge for Designers";
+export const SITE_TAGLINE = "A 12-week winter challenge for designers";
+export const SITE_DESCRIPTION =
+  "Winter Arc is a free 12-week challenge for UX, UI and product designers. Show up every day for a small task, ship a deliverable every week, keep your streak alive, and finish the winter a better designer.";
+export const SITE_KEYWORDS = [
+  "winter arc",
+  "designers winter arc",
+  "design challenge",
+  "12 week design challenge",
+  "UX design challenge",
+  "UI design practice",
+  "product design",
+  "daily UI",
+  "design streak",
+  "build in public",
+  "UX designer",
+  "UI designer",
+];
+
+export function dailyShareText(arcName: string, day: number): string {
+  return `I just completed Day ${day} of ${arcName}. Join me on the journey to become a better designer.`;
+}
+
+export function weeklyShareText(arcName: string, week: number): string {
+  return `I just completed Week ${week}'s deliverable of ${arcName}. Join me on the journey to become a better designer.`;
+}
+
+export function weekStreakShareText(arcName: string, week: number): string {
+  return `I just finished Week ${week} of ${arcName}, showing up every day. Join me on the journey to become a better designer.`;
+}
+
+export function arcCompleteShareText(arcName: string, totalWeeks: number): string {
+  return `I just completed all ${totalWeeks} weeks of ${arcName}. Join me on the journey to become a better designer.`;
+}
+
 export const REAL_CATEGORIES: TaskCategory[] = [
   "ui_practice",
   "connection",

@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { ResetPasswordForm } from "@/components/auth/ResetPasswordForm";
 import { Logo } from "@/components/Logo";
+
+export const metadata: Metadata = {
+  title: "Reset your password",
+  description: "Choose a new password for your Winter Arc account.",
+  robots: { index: false, follow: false },
+};
 
 export default async function ResetPasswordPage() {
   const supabase = await createClient();

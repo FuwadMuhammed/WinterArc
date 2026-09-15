@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ConfirmSheet } from "@/components/ConfirmSheet";
-import { resetArcProgress, leaveArc, signOutAction, updatePasswordAction } from "@/lib/actions";
+import { resetArcProgress, signOutAction, updatePasswordAction } from "@/lib/actions";
 
 export function ProfileModal({
   open,
@@ -27,7 +27,7 @@ export function ProfileModal({
   status: string;
 }) {
   const [pending, startTransition] = useTransition();
-  const [sheet, setSheet] = useState<"reset" | "leave" | null>(null);
+  const [sheet, setSheet] = useState<"reset" | null>(null);
   const [changingPassword, setChangingPassword] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -52,15 +52,6 @@ export function ProfileModal({
       await resetArcProgress();
       router.refresh();
       setSheet(null);
-    });
-  }
-
-  function doLeave() {
-    startTransition(async () => {
-      await leaveArc();
-      router.refresh();
-      setSheet(null);
-      onClose();
     });
   }
 
@@ -136,7 +127,7 @@ export function ProfileModal({
           <div className="min-w-0">
             <p className="truncate text-sm font-medium text-ink">{userEmail}</p>
             <p className="text-xs text-ink-muted">
-              Week {currentWeek} of {durationWeeks} · joined {joinedLabel}
+              Week {currentWeek} of {durationWeeks} · started {joinedLabel}
             </p>
           </div>
         </div>
@@ -148,16 +139,26 @@ export function ProfileModal({
         </div>
 
         <div className="mt-5">
-          <button
-            type="button"
-            onClick={toggleChangePassword}
-            className="w-full rounded-full border border-border bg-panel py-3 text-sm font-medium text-ink transition-check hover:border-primary"
-          >
-            {changingPassword ? "Cancel" : "Change password"}
-          </button>
-
-          {changingPassword && (
-            <form onSubmit={doChangePassword} noValidate className="mt-3 space-y-2">
+          {!changingPassword ? (
+            <button
+              type="button"
+              onClick={toggleChangePassword}
+              className="w-full rounded-full border border-border bg-panel py-3 text-sm font-medium text-ink transition-check hover:border-primary"
+            >
+              Change password
+            </button>
+          ) : (
+            <form onSubmit={doChangePassword} noValidate className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-ink">Change password</p>
+                <button
+                  type="button"
+                  onClick={toggleChangePassword}
+                  className="text-xs font-medium text-ink-faint transition-check hover:text-ink"
+                >
+                  Cancel
+                </button>
+              </div>
               <input
                 type="password"
                 value={newPassword}
@@ -197,16 +198,8 @@ export function ProfileModal({
           <button
             type="button"
             disabled={pending}
-            onClick={() => setSheet("leave")}
-            className="w-full rounded-full border border-red/30 bg-red-soft/40 py-3 text-sm font-medium text-red transition-check hover:border-red disabled:opacity-60"
-          >
-            Leave the Winter Arc
-          </button>
-          <button
-            type="button"
-            disabled={pending}
             onClick={doSignOut}
-            className="w-full rounded-full py-3 text-sm font-medium text-ink-muted transition-check hover:text-ink disabled:opacity-60"
+            className="w-full rounded-full py-3 text-sm font-medium text-red transition-check hover:opacity-80 disabled:opacity-60"
           >
             Sign out
           </button>
@@ -217,18 +210,9 @@ export function ProfileModal({
         open={sheet === "reset"}
         onClose={() => setSheet(null)}
         title="Reset all progress?"
-        description="Every checked task, milestone, and logged connection for the Winter Arc will be cleared. This can't be undone."
+        description={`Every checked task and note will be cleared, and your ${durationWeeks} weeks restart from today as Day 1. This can't be undone.`}
         confirmLabel="Reset progress"
         onConfirm={doReset}
-        pending={pending}
-      />
-      <ConfirmSheet
-        open={sheet === "leave"}
-        onClose={() => setSheet(null)}
-        title="Leave the Winter Arc?"
-        description="You'll lose your progress and need to rejoin from scratch."
-        confirmLabel="Leave the Winter Arc"
-        onConfirm={doLeave}
         pending={pending}
       />
     </div>

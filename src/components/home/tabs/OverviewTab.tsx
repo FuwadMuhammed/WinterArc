@@ -2,9 +2,11 @@ import {
   computeHeatmap,
   computeLongestDayStreak,
   entryFor,
+  getArcEndDate,
+  getArcStartDate,
   getCurrentDay,
   getCurrentWeek,
-  getHeatmapRange,
+  isArcFinished,
   taskProgress,
 } from "@/lib/arc-logic";
 import { HeatmapGrid } from "@/components/HeatmapGrid";
@@ -12,28 +14,31 @@ import { CategoryProgressRow } from "@/components/CategoryProgressRow";
 import { TaskCard } from "@/components/home/TaskCard";
 import { BlurredTeaser } from "@/components/home/BlurredTeaser";
 import { CATEGORY_LABEL, REAL_CATEGORIES } from "@/lib/constants";
-import type { Arc, Task, TaskEntry, Week } from "@/lib/database.types";
+import type { Arc, Task, TaskEntry, UserArc, Week } from "@/lib/database.types";
 
 export function OverviewTab({
   arc,
   weeks,
   tasks,
   entries,
-  joined,
+  userArc,
   onOpenAuth,
 }: {
   arc: Arc;
   weeks: Week[];
   tasks: Task[];
   entries: TaskEntry[];
-  joined: boolean;
+  userArc: UserArc | null;
   onOpenAuth: () => void;
 }) {
-  const { start: heatmapStart, end: heatmapEnd } = getHeatmapRange(arc);
+  const joined = userArc !== null;
+  const heatmapStart = getArcStartDate(userArc);
+  const heatmapEnd = getArcEndDate(arc, userArc);
+  const finished = joined && isArcFinished(arc, userArc);
   const completedItems = entries
     .filter((e) => e.completed)
     .map((e) => ({
-      created_at: e.created_at,
+      completed_at: e.updated_at,
       weight: tasks.find((t) => t.id === e.task_id)?.weight ?? 1,
     }));
   const days = computeHeatmap(completedItems, heatmapStart, heatmapEnd);
@@ -49,9 +54,9 @@ export function OverviewTab({
     year: "numeric",
   });
 
-  const weekNumber = getCurrentWeek(arc);
+  const weekNumber = getCurrentWeek(arc, userArc);
   const week = weeks.find((w) => w.week_number === weekNumber);
-  const currentDay = getCurrentDay(arc);
+  const currentDay = getCurrentDay(userArc);
   const weekTasks = tasks.filter((t) => t.week_number === weekNumber);
   const todaysTasks = weekTasks.filter((t) => t.day_number === currentDay);
   const weekDeliverables = weekTasks.filter((t) => t.day_number === null);
@@ -68,7 +73,9 @@ export function OverviewTab({
     <div className="space-y-4">
       <div className="rounded-3xl border border-border bg-panel px-6 py-6">
         <p className="text-sm font-semibold text-ink">Total repetitions</p>
-        <p className="text-xs text-ink-muted">Since {startLabel}</p>
+        <p className="text-xs text-ink-muted">
+          {joined ? `Since ${startLabel}` : `${arc.duration_weeks} weeks, from the day you join`}
+        </p>
         <p className="mt-2 font-heading text-5xl text-ink">{totalReps}</p>
         <div className="mt-5">
           <HeatmapGrid days={days} />
@@ -93,7 +100,14 @@ export function OverviewTab({
         </div>
       </div>
 
-      {week?.is_rest_week ? (
+      {finished ? (
+        <div className="rounded-3xl border border-border bg-panel px-6 py-8 text-center">
+          <p className="font-heading text-xl text-ink">🏁 Arc complete</p>
+          <p className="mt-1 text-sm text-ink-muted">
+            {arc.duration_weeks} weeks, done. Reset progress from your profile to run it again.
+          </p>
+        </div>
+      ) : week?.is_rest_week ? (
         <div className="rounded-3xl border border-border bg-panel px-6 py-8 text-center">
           <p className="font-heading text-xl text-ink">🌙 Rest Week</p>
           <p className="mt-1 text-sm text-ink-muted">No tasks this week, just breathe.</p>

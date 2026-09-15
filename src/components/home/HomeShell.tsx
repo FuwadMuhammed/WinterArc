@@ -32,7 +32,7 @@ export function HomeShell({ authError, ...data }: HomeData & { authError: string
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authError]);
 
-  const currentWeek = getCurrentWeek(arc);
+  const currentWeek = getCurrentWeek(arc, userArc);
   const joinedLabel = userArc
     ? new Date(userArc.joined_at).toLocaleDateString("en-US", {
         month: "long",
@@ -84,7 +84,7 @@ export function HomeShell({ authError, ...data }: HomeData & { authError: string
                 weeks={weeks}
                 tasks={tasks}
                 entries={entries}
-                joined={joined}
+                userArc={userArc}
                 onOpenAuth={() => setAuthOpen(true)}
               />
             )}
@@ -94,7 +94,7 @@ export function HomeShell({ authError, ...data }: HomeData & { authError: string
                 weeks={weeks}
                 tasks={tasks}
                 entries={entries}
-                joined={joined}
+                userArc={userArc}
                 onOpenAuth={() => setAuthOpen(true)}
               />
             )}
@@ -104,18 +104,13 @@ export function HomeShell({ authError, ...data }: HomeData & { authError: string
                 weeks={weeks}
                 tasks={tasks}
                 entries={entries}
-                joined={joined}
+                userArc={userArc}
                 onOpenAuth={() => setAuthOpen(true)}
               />
             )}
           </div>
 
-          <Sidebar
-            arc={arc}
-            joined={joined}
-            loggedIn={loggedIn}
-            onOpenAuth={() => setAuthOpen(true)}
-          />
+          <Sidebar arc={arc} userArc={userArc} loggedIn={loggedIn} onOpenAuth={() => setAuthOpen(true)} />
         </div>
       </main>
 

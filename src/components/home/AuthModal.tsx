@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Logo } from "@/components/Logo";
 import {
   signInAction,
   signUpAction,
@@ -120,10 +119,7 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
       >
         <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-border sm:hidden" />
 
-        <div className="flex justify-center">
-          <Logo className="h-6 w-auto text-ink" />
-        </div>
-        <h2 className="mt-4 text-lg font-semibold text-ink">
+        <h2 className="text-lg font-semibold text-ink">
           {mode === "forgot" ? "Reset your password" : "Join the Winter Arc"}
         </h2>
         <p className="mt-1 text-sm text-ink-muted">
