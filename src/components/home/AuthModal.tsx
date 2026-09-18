@@ -2,8 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Logo } from "@/components/Logo";
-import { FieldTooltip } from "@/components/FieldTooltip";
+import Link from "next/link";
 import {
   signInAction,
   signUpAction,
@@ -121,10 +120,7 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
       >
         <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-border sm:hidden" />
 
-        <div className="flex justify-center">
-          <Logo className="h-6 w-auto text-ink" />
-        </div>
-        <h2 className="mt-4 text-lg font-semibold text-ink">
+        <h2 className="text-lg font-semibold text-ink">
           {mode === "forgot" ? "Reset your password" : "Join the Winter Arc"}
         </h2>
         <p className="mt-1 text-sm text-ink-muted">
@@ -259,6 +255,18 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
                 Continue with Google
               </button>
             </form>
+
+            <p className="mt-5 text-center text-xs leading-relaxed text-ink-faint">
+              By continuing you agree to the{" "}
+              <Link href="/terms" target="_blank" className="underline underline-offset-2 hover:text-ink">
+                Terms
+              </Link>{" "}
+              and{" "}
+              <Link href="/privacy" target="_blank" className="underline underline-offset-2 hover:text-ink">
+                Privacy Policy
+              </Link>
+              .
+            </p>
           </>
         )}
       </div>

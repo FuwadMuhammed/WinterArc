@@ -54,6 +54,7 @@ export type TaskEntry = {
   completed: boolean;
   note: string | null;
   created_at: string;
+  updated_at: string;
 };
 
 export type Database = {

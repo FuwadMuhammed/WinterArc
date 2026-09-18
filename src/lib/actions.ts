@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getHomeData } from "@/lib/arc-data";
 import { ensureJoined } from "@/lib/ensure-joined";
 
@@ -139,6 +140,7 @@ export async function setTaskEntry(taskId: string, completed: boolean, note: str
 
 // --- Profile -----------------------------------------------------------------
 
+/** Clears every entry and restarts the member's timeline, so Day 1 is today again. */
 export async function resetArcProgress() {
   const { userArc } = await getHomeData();
   if (!userArc) throw new Error("Not joined");
@@ -146,15 +148,27 @@ export async function resetArcProgress() {
 
   const { error } = await supabase.from("task_entries").delete().eq("user_arc_id", userArc.id);
   if (error) throw error;
+
+  const { error: restartError } = await supabase
+    .from("user_arcs")
+    .update({ joined_at: new Date().toISOString() })
+    .eq("id", userArc.id);
+  if (restartError) throw restartError;
   revalidatePath("/");
 }
 
-export async function leaveArc() {
-  const { userArc } = await getHomeData();
-  if (!userArc) throw new Error("Not joined");
+/** Permanently removes the auth user; memberships and entries cascade. */
+export async function deleteAccountAction(): Promise<AuthResult> {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in" };
 
-  const { error } = await supabase.from("user_arcs").delete().eq("id", userArc.id);
-  if (error) throw error;
+  const { error } = await createAdminClient().auth.admin.deleteUser(user.id);
+  if (error) return { error: error.message };
+
+  await supabase.auth.signOut();
   revalidatePath("/");
+  return { error: null };
 }
