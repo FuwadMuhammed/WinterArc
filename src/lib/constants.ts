@@ -2,7 +2,7 @@ import type { TaskCategory } from "@/lib/database.types";
 
 export const WINTER_ARC_ID = "11111111-1111-1111-1111-111111111111";
 
-export const SITE_URL = "https://winter-arc-wheat.vercel.app";
+export const SITE_URL = "https://winterarc.byfu.app";
 
 export const SITE_NAME = "Winter Arc";
 export const CONTACT_EMAIL = "fuwadmuhd@gmail.com";
