@@ -5,6 +5,9 @@ export const WINTER_ARC_ID = "11111111-1111-1111-1111-111111111111";
 export const SITE_URL = "https://winterarc.byfu.app";
 
 export const SITE_NAME = "Winter Arc";
+export const AUTHOR_NAME = "Fuwad";
+export const INSTAGRAM_URL = "https://www.instagram.com/fuwad.design";
+export const LINKEDIN_URL = "https://www.linkedin.com/in/fuwad/";
 export const CONTACT_EMAIL = "fuwadmuhd@gmail.com";
 export const SITE_TITLE = "Winter Arc – A 12-Week Winter Challenge for Designers";
 export const SITE_TAGLINE = "A 12-week winter challenge for designers";

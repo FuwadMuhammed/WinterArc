@@ -2,9 +2,13 @@ import type { Metadata, Viewport } from "next";
 import { googleSansFlex } from "./fonts";
 import { PostHog } from "@/components/PostHog";
 import {
+  AUTHOR_NAME,
+  INSTAGRAM_URL,
+  LINKEDIN_URL,
   SITE_DESCRIPTION,
   SITE_KEYWORDS,
   SITE_NAME,
+  SITE_TAGLINE,
   SITE_TITLE,
   SITE_URL,
 } from "@/lib/constants";
@@ -19,9 +23,23 @@ export const metadata: Metadata = {
   description: SITE_DESCRIPTION,
   applicationName: SITE_NAME,
   keywords: SITE_KEYWORDS,
-  authors: [{ name: "Fuwad", url: "https://www.linkedin.com/in/fuwad/" }],
-  creator: "Fuwad",
+  authors: [{ name: AUTHOR_NAME, url: INSTAGRAM_URL }],
+  creator: AUTHOR_NAME,
+  publisher: SITE_NAME,
   category: "design",
+  alternates: { canonical: "/" },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1 },
+  },
+  // Search Console / Bing Webmaster tokens; empty values are omitted from the head.
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
+    other: process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION
+      ? { "msvalidate.01": process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION }
+      : undefined,
+  },
   openGraph: {
     type: "website",
     siteName: SITE_NAME,
@@ -71,8 +89,46 @@ const jsonLd = {
       name: SITE_NAME,
       url: SITE_URL,
       logo: `${SITE_URL}/icons/icon-512.png`,
-      founder: { "@type": "Person", name: "Fuwad", url: "https://www.linkedin.com/in/fuwad/" },
-      sameAs: ["https://www.instagram.com/fuwad.design", "https://www.linkedin.com/in/fuwad/"],
+      founder: { "@id": `${SITE_URL}/#fuwad` },
+      sameAs: [INSTAGRAM_URL, LINKEDIN_URL],
+    },
+    {
+      "@type": "Person",
+      "@id": `${SITE_URL}/#fuwad`,
+      name: AUTHOR_NAME,
+      url: INSTAGRAM_URL,
+      image: `${SITE_URL}/fuwad.png`,
+      jobTitle: "Product Designer",
+      sameAs: [INSTAGRAM_URL, LINKEDIN_URL],
+    },
+    {
+      "@type": "WebPage",
+      "@id": `${SITE_URL}/#webpage`,
+      url: SITE_URL,
+      name: SITE_TITLE,
+      description: SITE_DESCRIPTION,
+      isPartOf: { "@id": `${SITE_URL}/#website` },
+      about: { "@id": `${SITE_URL}/#organization` },
+      primaryImageOfPage: { "@type": "ImageObject", url: `${SITE_URL}/opengraph-image` },
+      inLanguage: "en",
+    },
+    {
+      "@type": "Course",
+      "@id": `${SITE_URL}/#course`,
+      name: SITE_TITLE,
+      description: SITE_TAGLINE,
+      url: SITE_URL,
+      provider: { "@id": `${SITE_URL}/#organization` },
+      isAccessibleForFree: true,
+      educationalLevel: "Beginner to intermediate",
+      teaches: ["UX research", "UI design", "Prototyping", "Shipping a product", "Writing a case study"],
+      timeRequired: "P12W",
+      hasCourseInstance: {
+        "@type": "CourseInstance",
+        courseMode: "online",
+        courseWorkload: "PT20M",
+      },
+      offers: { "@type": "Offer", price: "0", priceCurrency: "USD", availability: "https://schema.org/InStock" },
     },
   ],
 };

@@ -1,5 +1,6 @@
 "use client";
 
+import { INSTAGRAM_URL, LINKEDIN_URL } from "@/lib/constants";
 import { useState } from "react";
 import Image from "next/image";
 import { PageChrome } from "@/components/PageChrome";
@@ -9,8 +10,6 @@ import type { HomeData } from "@/lib/arc-data";
 import { CONTACT_EMAIL } from "@/lib/constants";
 
 const BMC_URL = "https://buymeacoffee.com/fuwad";
-const INSTAGRAM_URL = "https://www.instagram.com/fuwad.design";
-const LINKEDIN_URL = "https://www.linkedin.com/in/fuwad/";
 const TOPMATE_URL = "https://topmate.io/fuwad";
 
 const AKASH_URL = "https://www.linkedin.com/in/noakash/";
