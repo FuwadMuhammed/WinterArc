@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import confetti from "canvas-confetti";
 import { setTaskEntry } from "@/lib/actions";
+import { track } from "@/lib/analytics";
 import { CATEGORY_LABEL, CATEGORY_EMOJI, taskCardColor } from "@/lib/constants";
 import type { Task, TaskEntry } from "@/lib/database.types";
 
@@ -66,6 +67,14 @@ export function TaskCard({
 
   const label = CATEGORY_LABEL[task.category] ?? task.category;
   const emoji = CATEGORY_EMOJI[label] ?? "✅";
+  const taskProps = {
+    task_id: task.id,
+    heading: task.heading,
+    category: task.category,
+    week: task.week_number,
+    day: task.day_number,
+    requires_proof: task.requires_proof,
+  };
 
   function originFor(el: HTMLElement | null) {
     if (!el) return undefined;
@@ -85,6 +94,7 @@ export function TaskCard({
     setCompleted(next);
     latestCompletedRef.current = next;
     if (next) celebrate(originFor(checkRef.current));
+    track(next ? "task_completed" : "task_uncompleted", taskProps);
 
     if (toggleDebounceRef.current) clearTimeout(toggleDebounceRef.current);
     toggleDebounceRef.current = setTimeout(() => {
@@ -99,6 +109,7 @@ export function TaskCard({
     if (!note.trim()) return;
     setCompleted(true);
     celebrate(originFor(submitRef.current));
+    track("proof_submitted", { ...taskProps, note_length: note.trim().length });
     startTransition(async () => {
       await setTaskEntry(task.id, true, note);
       router.refresh();
@@ -107,6 +118,7 @@ export function TaskCard({
 
   function undoProof() {
     setCompleted(false);
+    track("task_uncompleted", taskProps);
     startTransition(async () => {
       await setTaskEntry(task.id, false, note);
       router.refresh();
@@ -137,6 +149,7 @@ export function TaskCard({
           <div className="mt-2 flex gap-2">
             <input
               type="text"
+              data-ph-mask
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="Paste a link, or a short note…"

@@ -1,4 +1,5 @@
 import type { PlanDay } from "@/lib/arc-logic";
+import { track } from "@/lib/analytics";
 
 function label(d: PlanDay): string {
   return `Week ${d.week}, Day ${d.day}`;
@@ -27,7 +28,10 @@ export function ResumeNotice({
   const button = (
     <button
       type="button"
-      onClick={onJump}
+      onClick={() => {
+        track("resume_jump", { from: compact ? "overview" : "daily", days_behind: daysBehind, ...resume });
+        onJump();
+      }}
       className="shrink-0 rounded-full bg-amber px-4 py-2 text-xs font-semibold text-white transition-check hover:opacity-90"
     >
       {compact ? "Continue in Daily" : `Jump to Day ${resume.day}`}

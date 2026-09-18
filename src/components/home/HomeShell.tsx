@@ -6,6 +6,7 @@ import { SiteHeader } from "./SiteHeader";
 import { TabBar, type TabKey } from "./TabBar";
 import { Sidebar } from "./Sidebar";
 import { SiteFooter } from "@/components/SiteFooter";
+import { PostHogUser } from "@/components/PostHogUser";
 import { AuthModal } from "./AuthModal";
 import { ProfileModal } from "./ProfileModal";
 import { WelcomeModal, useWelcomeSeen } from "./WelcomeModal";
@@ -61,6 +62,7 @@ export function HomeShell({ authError, ...data }: HomeData & { authError: string
 
   return (
     <div className="min-h-screen">
+      <PostHogUser userId={data.userId} email={userEmail} joinedAt={userArc?.joined_at ?? null} />
       <SiteHeader
         joined={joined}
         loggedIn={loggedIn}

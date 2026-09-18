@@ -1,5 +1,6 @@
 "use client";
 
+import { resetUser, track } from "@/lib/analytics";
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ConfirmPanel } from "@/components/ConfirmPanel";
@@ -56,6 +57,7 @@ export function ProfileModal({
   function doReset() {
     startTransition(async () => {
       await resetArcProgress();
+      track("progress_reset");
       router.refresh();
       setView("profile");
     });
@@ -69,6 +71,8 @@ export function ProfileModal({
         setDeleteError(result.error);
         return;
       }
+      track("account_deleted");
+      resetUser();
       router.refresh();
       close();
     });
@@ -77,6 +81,7 @@ export function ProfileModal({
   function doSignOut() {
     startTransition(async () => {
       await signOutAction();
+      resetUser();
       router.refresh();
       close();
     });
