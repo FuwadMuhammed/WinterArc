@@ -23,14 +23,21 @@ export default async function AdminDashboardPage() {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return <SetupNotice />;
 
   const data = await getDashboardData();
-  const weekLabel = data.isBuffer ? "Buffer" : `${data.currentWeek} / ${data.durationWeeks}`;
+  const { weekRange } = data;
+  const weekLabel = !weekRange
+    ? "–"
+    : weekRange.min === weekRange.max
+      ? `${weekRange.min} / ${data.durationWeeks}`
+      : `${weekRange.min}–${weekRange.max} / ${data.durationWeeks}`;
 
   return (
     <div className="space-y-8">
       <header>
         <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Dashboard</p>
         <h1 className="mt-1 font-heading text-3xl text-ink">{data.arcName}</h1>
-        <p className="mt-1 text-sm text-ink-muted">Starts {data.startDate}</p>
+        <p className="mt-1 text-sm text-ink-muted">
+          {data.durationWeeks} weeks per member, starting the day they join
+        </p>
       </header>
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -39,7 +46,7 @@ export default async function AdminDashboardPage() {
           value={data.members.total}
           hint={`${data.members.active} active · ${data.members.completed} completed · ${data.members.abandoned} abandoned`}
         />
-        <StatCard label="Current week" value={weekLabel} />
+        <StatCard label="Members' weeks" value={weekLabel} hint="each member runs their own timeline" />
         <StatCard
           label="Tasks completed"
           value={data.entries.completed}
@@ -61,11 +68,11 @@ export default async function AdminDashboardPage() {
                 Week {w.week_number}
               </span>
               <span className="w-16 shrink-0 text-xs text-ink-faint">
-                {w.is_rest_week ? "Rest" : w.week_number === data.currentWeek ? "Now" : ""}
+                {w.is_rest_week ? "Rest" : w.membersNow > 0 ? `${w.membersNow} here` : ""}
               </span>
               <ProgressBar
                 fraction={w.possible ? w.done / w.possible : 0}
-                accent={w.week_number <= data.currentWeek ? "green" : "blue"}
+                accent={weekRange && w.week_number <= weekRange.max ? "green" : "blue"}
                 className="flex-1"
               />
               <span className="w-24 shrink-0 text-right text-xs text-ink-muted">

@@ -159,7 +159,10 @@ export function MembersTable({ members }: { members: Member[] }) {
                       <span className="truncate font-medium text-ink">{m.email}</span>
                     </div>
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-ink-muted">{formatDate(m.joinedAt)}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-ink-muted">
+                    {formatDate(m.joinedAt)}
+                    <span className="ml-1 text-xs text-ink-faint">· week {m.currentWeek}</span>
+                  </td>
                   <td className="px-4 py-3">
                     <select
                       value={m.status}

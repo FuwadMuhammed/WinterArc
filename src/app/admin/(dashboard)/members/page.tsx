@@ -19,8 +19,8 @@ export default async function AdminMembersPage() {
           <span className="ml-3 text-lg text-ink-muted">{active} active</span>
         </h1>
         <p className="mt-1 text-sm text-ink-muted">
-          Progress is weighted against the {data.releasedWeight} task units released through week{" "}
-          {data.currentWeek}.
+          Progress is weighted against the task units released to each member so far: every
+          member runs their own {data.durationWeeks}-week timeline from the day they joined.
         </p>
       </header>
 

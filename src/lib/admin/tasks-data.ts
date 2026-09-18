@@ -3,7 +3,6 @@ import { cache } from "react";
 import { requireAdmin } from "./dal";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { WINTER_ARC_ID } from "@/lib/constants";
-import { getCurrentWeek } from "@/lib/arc-logic";
 import type { Arc, Task, Week } from "@/lib/database.types";
 
 export type TaskWithStats = Task & {
@@ -14,7 +13,6 @@ export type TaskWithStats = Task & {
 export type TasksData = {
   arc: Arc;
   weeks: Week[];
-  currentWeek: number;
   selectedWeek: Week;
   tasks: TaskWithStats[];
   taskCountByWeek: Record<number, number>;
@@ -34,11 +32,9 @@ export const getTasksData = cache(async (requestedWeek: number | null): Promise<
   const weeks = weeksRes.data ?? [];
   if (weeks.length === 0) throw new Error("No weeks are seeded for this arc.");
 
-  const currentWeek = getCurrentWeek(arc);
-  const selectedWeek =
-    weeks.find((w) => w.week_number === requestedWeek) ??
-    weeks.find((w) => w.week_number === currentWeek) ??
-    weeks[0];
+  // Members each run their own timeline, so there's no shared "current" week
+  // to land on; fall back to the first.
+  const selectedWeek = weeks.find((w) => w.week_number === requestedWeek) ?? weeks[0];
 
   const taskCountByWeek: Record<number, number> = {};
   for (const row of countsRes.data ?? []) {
@@ -64,7 +60,6 @@ export const getTasksData = cache(async (requestedWeek: number | null): Promise<
   return {
     arc,
     weeks,
-    currentWeek,
     selectedWeek,
     tasks: (tasks ?? []).map((t) => ({ ...t, entryCount: entryCount.get(t.id) ?? 0 })),
     taskCountByWeek,

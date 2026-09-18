@@ -45,9 +45,6 @@ export default async function AdminTasksPage({
             >
               {w.week_number}
               {w.is_rest_week && <span className="ml-1 text-xs opacity-70">rest</span>}
-              {w.week_number === data.currentWeek && !selected && (
-                <span className="ml-1 text-xs text-ink-faint">now</span>
-              )}
               <span className={`ml-1.5 text-xs ${selected ? "opacity-70" : "text-ink-faint"}`}>
                 {data.taskCountByWeek[w.week_number] ?? 0}
               </span>

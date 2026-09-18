@@ -3,7 +3,7 @@ import { cache } from "react";
 import { requireAdmin } from "./dal";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { WINTER_ARC_ID, CATEGORY_LABEL } from "@/lib/constants";
-import { getCurrentWeek, isBufferPeriod } from "@/lib/arc-logic";
+import { getCurrentWeek } from "@/lib/arc-logic";
 import type { Task, UserArcStatus } from "@/lib/database.types";
 import { fetchAllCompleted, fetchAuthUsers } from "./queries";
 
@@ -13,6 +13,8 @@ export type WeekProgress = {
   done: number;
   possible: number;
   pct: number;
+  /** Members currently in this week on their own timelines. */
+  membersNow: number;
 };
 
 export type RecentSubmission = {
@@ -30,8 +32,8 @@ export type DashboardData = {
   arcName: string;
   startDate: string;
   durationWeeks: number;
-  currentWeek: number;
-  isBuffer: boolean;
+  /** Range of weeks members are currently in on their own timelines. */
+  weekRange: { min: number; max: number } | null;
   members: Record<"total" | UserArcStatus, number>;
   entries: { total: number; completed: number };
   completionRate: number;
@@ -71,8 +73,12 @@ export const getDashboardData = cache(async (): Promise<DashboardData> => {
   const userArcById = new Map(userArcs.map((ua) => [ua.id, ua]));
   const taskById = new Map<string, Task>(tasks.map((t) => [t.id, t]));
 
-  const currentWeek = getCurrentWeek(arc);
   const memberCount = userArcs.length;
+  // Every member runs their own timeline from joined_at.
+  const weekOf = new Map(userArcs.map((ua) => [ua.id, getCurrentWeek(arc, ua)]));
+  const memberWeeks = [...weekOf.values()];
+  const weekRange =
+    memberWeeks.length > 0 ? { min: Math.min(...memberWeeks), max: Math.max(...memberWeeks) } : null;
 
   // Weight completed per week, across all members.
   const doneByWeek = new Map<number, number>();
@@ -95,17 +101,20 @@ export const getDashboardData = cache(async (): Promise<DashboardData> => {
       done,
       possible,
       pct: possible > 0 ? Math.round((done / possible) * 100) : 0,
+      membersNow: memberWeeks.filter((week) => week === w.week_number).length,
     };
   });
 
-  // Completion rate = completed weight / (members × weight of tasks released so far).
-  const releasedWeight = tasks
-    .filter((t) => t.week_number <= currentWeek)
-    .reduce((sum, t) => sum + t.weight, 0);
-  const releasedDone = perWeek
-    .filter((w) => w.week_number <= currentWeek)
-    .reduce((sum, w) => sum + w.done, 0);
-  const possibleReleased = releasedWeight * memberCount;
+  // Completion rate = completed weight / weight released so far, where "so
+  // far" is per member: every task in weeks up to the one they're in.
+  const releasedWeightThrough = (week: number) =>
+    [...weightByWeek].reduce((sum, [w, weight]) => (w <= week ? sum + weight : sum), 0);
+  let releasedDone = 0;
+  for (const row of completedRows) {
+    const task = taskById.get(row.task_id);
+    if (task && task.week_number <= (weekOf.get(row.user_arc_id) ?? 0)) releasedDone += task.weight;
+  }
+  const possibleReleased = memberWeeks.reduce((sum, week) => sum + releasedWeightThrough(week), 0);
   const completionRate = possibleReleased > 0 ? Math.round((releasedDone / possibleReleased) * 100) : 0;
 
   const members: DashboardData["members"] = { total: memberCount, active: 0, completed: 0, abandoned: 0 };
@@ -130,8 +139,7 @@ export const getDashboardData = cache(async (): Promise<DashboardData> => {
     arcName: arc.name,
     startDate: arc.start_date,
     durationWeeks: arc.duration_weeks,
-    currentWeek,
-    isBuffer: isBufferPeriod(arc),
+    weekRange,
     members,
     entries: { total: totalRes.count ?? 0, completed: completedRes.count ?? 0 },
     completionRate,

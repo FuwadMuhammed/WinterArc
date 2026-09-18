@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { FieldTooltip } from "@/components/FieldTooltip";
 import {
   signInAction,
   signUpAction,

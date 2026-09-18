@@ -18,6 +18,8 @@ export type Member = {
   /** Newest completed entry, the closest thing to "last active" in the data. */
   lastActiveAt: string | null;
   completedCount: number;
+  /** 1-indexed week this member is in on their own timeline. */
+  currentWeek: number;
   /** Weighted progress against tasks released so far. */
   done: number;
   possible: number;
@@ -25,8 +27,7 @@ export type Member = {
 };
 
 export type MembersData = {
-  currentWeek: number;
-  releasedWeight: number;
+  durationWeeks: number;
   members: Member[];
 };
 
@@ -47,19 +48,25 @@ export const getMembersData = cache(async (): Promise<MembersData> => {
   ]);
 
   if (arcRes.error || !arcRes.data) throw new Error("The Winter Arc isn't seeded yet.");
-  const currentWeek = getCurrentWeek(arcRes.data);
+  const arc = arcRes.data;
   const tasks = tasksRes.data ?? [];
+  const taskById = new Map(tasks.map((t) => [t.id, t]));
 
-  const releasedTasks = new Map(
-    tasks.filter((t) => t.week_number <= currentWeek).map((t) => [t.id, t.weight]),
-  );
-  const releasedWeight = [...releasedTasks.values()].reduce((a, b) => a + b, 0);
+  // Every member runs their own timeline from joined_at, so "released so far"
+  // differs per member: the weight of every task in weeks up to theirs.
+  const weightByWeek = new Map<number, number>();
+  for (const t of tasks) weightByWeek.set(t.week_number, (weightByWeek.get(t.week_number) ?? 0) + t.weight);
+  const releasedWeightThrough = (week: number) =>
+    [...weightByWeek].reduce((sum, [w, weight]) => (w <= week ? sum + weight : sum), 0);
+
+  const weekOf = new Map((userArcsRes.data ?? []).map((ua) => [ua.id, getCurrentWeek(arc, ua)]));
 
   const doneByMember = new Map<string, { weight: number; count: number; last: string | null }>();
   for (const row of completedRows) {
     const agg = doneByMember.get(row.user_arc_id) ?? { weight: 0, count: 0, last: null };
+    const task = taskById.get(row.task_id);
     agg.count += 1;
-    agg.weight += releasedTasks.get(row.task_id) ?? 0;
+    if (task && task.week_number <= (weekOf.get(row.user_arc_id) ?? 0)) agg.weight += task.weight;
     if (!agg.last || row.created_at > agg.last) agg.last = row.created_at;
     doneByMember.set(row.user_arc_id, agg);
   }
@@ -68,6 +75,8 @@ export const getMembersData = cache(async (): Promise<MembersData> => {
     const user = authUsers.get(ua.user_id);
     const agg = doneByMember.get(ua.id);
     const done = agg?.weight ?? 0;
+    const currentWeek = weekOf.get(ua.id) ?? 1;
+    const releasedWeight = releasedWeightThrough(currentWeek);
     return {
       userArcId: ua.id,
       userId: ua.user_id,
@@ -78,11 +87,12 @@ export const getMembersData = cache(async (): Promise<MembersData> => {
       lastSignInAt: user?.lastSignInAt ?? null,
       lastActiveAt: agg?.last ?? null,
       completedCount: agg?.count ?? 0,
+      currentWeek,
       done,
       possible: releasedWeight,
       pct: releasedWeight > 0 ? Math.round((done / releasedWeight) * 100) : 0,
     };
   });
 
-  return { currentWeek, releasedWeight, members };
+  return { durationWeeks: arc.duration_weeks, members };
 });
