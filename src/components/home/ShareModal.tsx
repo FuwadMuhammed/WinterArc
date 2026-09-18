@@ -1,5 +1,6 @@
 "use client";
 
+import { track } from "@/lib/analytics";
 import { useEffect, useState } from "react";
 import { InstagramIcon, LinkedInIcon } from "@/components/icons";
 import { SITE_URL } from "@/lib/constants";
@@ -42,6 +43,7 @@ export function ShareModal({
   }
 
   async function shareToLinkedIn() {
+    track("share_clicked", { channel: "linkedin", heading });
     const copied = await copyCaption();
     setCopiedFor(copied ? "linkedin" : null);
     const shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(SITE_URL)}`;
@@ -49,6 +51,7 @@ export function ShareModal({
   }
 
   async function shareToInstagram() {
+    track("share_clicked", { channel: "instagram", heading });
     const copied = await copyCaption();
     setCopiedFor(copied ? "instagram" : null);
     window.open("https://www.instagram.com", "_blank", "noopener,noreferrer");

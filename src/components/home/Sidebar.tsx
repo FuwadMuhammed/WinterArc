@@ -3,6 +3,7 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { joinArcAction } from "@/lib/actions";
+import { track } from "@/lib/analytics";
 import { getArcEndDate, getArcStartDate, taskProgress } from "@/lib/arc-logic";
 import type { Arc, Task, TaskEntry, UserArc } from "@/lib/database.types";
 
@@ -42,6 +43,7 @@ export function Sidebar({
     if (loggedIn) {
       startTransition(async () => {
         await joinArcAction();
+        track("arc_joined");
         router.refresh();
       });
     } else {

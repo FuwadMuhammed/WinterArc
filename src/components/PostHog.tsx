@@ -13,6 +13,16 @@ posthog.init(${JSON.stringify(POSTHOG_KEY)}, {
   api_host: ${JSON.stringify(POSTHOG_HOST)},
   defaults: '2026-05-30',
   person_profiles: 'identified_only',
+  // Heatmaps and replay also need to be switched on in the PostHog project
+  // settings; these flags only let the client collect the data.
+  enable_heatmaps: true,
+  capture_exceptions: true,
+  session_recording: {
+    // Inputs are masked by default; notes people type into proof tasks
+    // count as personal, so mask any text they enter too.
+    maskAllInputs: true,
+    maskTextSelector: '[data-ph-mask]',
+  },
 });
 `;
 

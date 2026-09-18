@@ -20,6 +20,7 @@ import { ArcFinishedNotice } from "@/components/home/ArcFinishedNotice";
 import { WeekNav } from "@/components/home/WeekNav";
 import { NextWeekNotice } from "@/components/home/NextWeekNotice";
 import { ResumeNotice } from "@/components/home/ResumeNotice";
+import { track } from "@/lib/analytics";
 import { arcCompleteShareText, dailyShareText, weekStreakShareText } from "@/lib/constants";
 import type { Arc, Task, TaskEntry, UserArc, Week } from "@/lib/database.types";
 
@@ -120,9 +121,12 @@ export function DailyTab({
   const prevAllDoneRef = useRef(allTodayDone);
 
   useEffect(() => {
-    if (allTodayDone && shareMoment && !prevAllDoneRef.current) setShareOpen(true);
+    if (allTodayDone && shareMoment && !prevAllDoneRef.current) {
+      setShareOpen(true);
+      track("share_prompt_shown", { moment: shareMoment.heading, week: currentWeek, day: currentDay });
+    }
     prevAllDoneRef.current = allTodayDone;
-  }, [allTodayDone, shareMoment]);
+  }, [allTodayDone, shareMoment, currentWeek, currentDay]);
 
   const unlockDate =
     joined && selectedWeek < arc.duration_weeks ? getWeekDateRange(userArc, selectedWeek + 1).start : undefined;
