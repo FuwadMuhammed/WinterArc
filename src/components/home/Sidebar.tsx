@@ -3,20 +3,23 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { joinArcAction } from "@/lib/actions";
-import { getArcEndDate, getArcStartDate } from "@/lib/arc-logic";
-import { REAL_CATEGORIES } from "@/lib/constants";
-import type { Arc, UserArc } from "@/lib/database.types";
+import { getArcEndDate, getArcStartDate, taskProgress } from "@/lib/arc-logic";
+import type { Arc, Task, TaskEntry, UserArc } from "@/lib/database.types";
 
 const DATE_FORMAT: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", year: "numeric" };
 
 export function Sidebar({
   arc,
   userArc,
+  tasks,
+  entries,
   loggedIn,
   onOpenAuth,
 }: {
   arc: Arc;
   userArc: UserArc | null;
+  tasks: Task[];
+  entries: TaskEntry[];
   loggedIn: boolean;
   onOpenAuth: () => void;
 }) {
@@ -30,6 +33,10 @@ export function Sidebar({
   const endLabel = joined
     ? getArcEndDate(arc, userArc).toLocaleDateString("en-US", DATE_FORMAT)
     : `${arc.duration_weeks} weeks later`;
+  const connections = taskProgress(
+    tasks.filter((t) => t.category === "connection"),
+    entries,
+  );
 
   function handleJoinClick() {
     if (loggedIn) {
@@ -60,8 +67,11 @@ export function Sidebar({
             <dd className="font-medium text-ink">{endLabel}</dd>
           </div>
           <div className="flex items-center justify-between text-sm">
-            <dt className="text-ink-muted">Categories</dt>
-            <dd className="font-medium text-ink">{REAL_CATEGORIES.length}</dd>
+            <dt className="text-ink-muted">Connections made</dt>
+            <dd className="font-medium text-ink">
+              {joined ? connections.done : 0}
+              <span className="text-ink-faint"> / {connections.total}</span>
+            </dd>
           </div>
         </dl>
       </div>
@@ -71,15 +81,15 @@ export function Sidebar({
         <ul className="mt-3 space-y-3 text-sm text-ink-muted">
           <li className="flex gap-2.5">
             <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-primary" />
-            Tick off daily tasks, most need no proof, a few ask for a link or note.
+            One small task a day: pick a problem, design the flow, build it, ship it.
           </li>
           <li className="flex gap-2.5">
             <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-primary" />
-            Hit each week&apos;s connection goal, a few real conversations, not busywork.
+            Share your work and get feedback, a few real conversations every week.
           </li>
           <li className="flex gap-2.5">
             <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-primary" />
-            Ship a weekly deliverable, a screen, a concept, a breakdown, or a build step.
+            Finish with two things: a live product and a case study deck that tells its story.
           </li>
         </ul>
       </div>
@@ -95,7 +105,7 @@ export function Sidebar({
             {pending ? "Joining…" : "Join the Winter Arc"}
           </button>
           <p className="mt-3 text-center text-xs text-ink-faint">
-            Leave or reset anytime from your profile.
+            Reset progress or delete your account anytime from your profile.
           </p>
         </div>
       )}

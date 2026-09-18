@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation";
 import { SiteHeader } from "./SiteHeader";
 import { TabBar, type TabKey } from "./TabBar";
 import { Sidebar } from "./Sidebar";
+import { SiteFooter } from "@/components/SiteFooter";
 import { AuthModal } from "./AuthModal";
 import { ProfileModal } from "./ProfileModal";
+import { WelcomeModal, useWelcomeSeen } from "./WelcomeModal";
 import { OverviewTab } from "./tabs/OverviewTab";
 import { DailyTab } from "./tabs/DailyTab";
 import { WeeklyTab } from "./tabs/WeeklyTab";
-import { getCurrentWeek } from "@/lib/arc-logic";
+import { getCurrentWeek, type PlanDay } from "@/lib/arc-logic";
 import type { HomeData } from "@/lib/arc-data";
 
 export function HomeShell({ authError, ...data }: HomeData & { authError: string | null }) {
@@ -33,6 +35,22 @@ export function HomeShell({ authError, ...data }: HomeData & { authError: string
   }, [authError]);
 
   const currentWeek = getCurrentWeek(arc, userArc);
+  // null follows the current week (so a rollover mid-session moves with it);
+  // the clamp keeps a stale pick from pointing at a locked future week.
+  const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
+  const viewWeek = Math.min(selectedWeek ?? currentWeek, currentWeek);
+  // Set by "jump to where you left off"; DailyTab scrolls to it and clears it.
+  const [jumpTo, setJumpTo] = useState<PlanDay | null>(null);
+  function goToPlanDay(target: PlanDay) {
+    setTab("daily");
+    setSelectedWeek(target.week);
+    setJumpTo(target);
+  }
+
+  // First visit after joining: nothing ticked yet and not dismissed on this device.
+  const { seen: welcomeSeen, markSeen: markWelcomeSeen } = useWelcomeSeen(userArc?.id ?? null);
+  const welcomeOpen = joined && entries.length === 0 && !welcomeSeen && !authOpen && !profileOpen;
+
   const joinedLabel = userArc
     ? new Date(userArc.joined_at).toLocaleDateString("en-US", {
         month: "long",
@@ -66,8 +84,8 @@ export function HomeShell({ authError, ...data }: HomeData & { authError: string
         </div>
       )}
 
-      <main className="mx-auto w-full max-w-5xl px-6 py-14">
-        <h1 className="font-heading text-5xl leading-[1.05] text-ink">
+      <main className="mx-auto w-full max-w-5xl px-5 py-10 sm:px-6 sm:py-14">
+        <h1 className="font-heading text-4xl leading-[1.05] text-ink sm:text-5xl">
           {arc.name} <span className="text-ink-faint">for designers</span>
         </h1>
         <p className="mt-4 max-w-xl text-base leading-relaxed text-ink-muted">{arc.description}</p>
@@ -86,6 +104,7 @@ export function HomeShell({ authError, ...data }: HomeData & { authError: string
                 entries={entries}
                 userArc={userArc}
                 onOpenAuth={() => setAuthOpen(true)}
+                onGoToPlanDay={goToPlanDay}
               />
             )}
             {tab === "daily" && (
@@ -95,7 +114,12 @@ export function HomeShell({ authError, ...data }: HomeData & { authError: string
                 tasks={tasks}
                 entries={entries}
                 userArc={userArc}
+                selectedWeek={viewWeek}
+                onSelectWeek={setSelectedWeek}
                 onOpenAuth={() => setAuthOpen(true)}
+                jumpTo={jumpTo}
+                onJump={goToPlanDay}
+                onJumpDone={() => setJumpTo(null)}
               />
             )}
             {tab === "weekly" && (
@@ -105,16 +129,35 @@ export function HomeShell({ authError, ...data }: HomeData & { authError: string
                 tasks={tasks}
                 entries={entries}
                 userArc={userArc}
+                selectedWeek={viewWeek}
+                onSelectWeek={setSelectedWeek}
                 onOpenAuth={() => setAuthOpen(true)}
               />
             )}
           </div>
 
-          <Sidebar arc={arc} userArc={userArc} loggedIn={loggedIn} onOpenAuth={() => setAuthOpen(true)} />
+          <Sidebar
+            arc={arc}
+            userArc={userArc}
+            tasks={tasks}
+            entries={entries}
+            loggedIn={loggedIn}
+            onOpenAuth={() => setAuthOpen(true)}
+          />
         </div>
       </main>
+      <SiteFooter />
 
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
+      <WelcomeModal
+        open={welcomeOpen}
+        durationWeeks={arc.duration_weeks}
+        onStart={() => {
+          markWelcomeSeen();
+          setTab("daily");
+        }}
+        onClose={markWelcomeSeen}
+      />
       {userArc && (
         <ProfileModal
           open={profileOpen}

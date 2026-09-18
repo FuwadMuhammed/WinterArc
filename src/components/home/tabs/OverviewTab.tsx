@@ -1,18 +1,23 @@
 import {
-  computeHeatmap,
-  computeLongestDayStreak,
+  computeDayProgress,
+  computeLongestPlanStreak,
+  computePlanGrid,
+  countDaysBehind,
   entryFor,
-  getArcEndDate,
+  findResumePoint,
   getArcStartDate,
   getCurrentDay,
   getCurrentWeek,
   isArcFinished,
+  planDayIndex,
   taskProgress,
+  type PlanDay,
 } from "@/lib/arc-logic";
 import { HeatmapGrid } from "@/components/HeatmapGrid";
 import { CategoryProgressRow } from "@/components/CategoryProgressRow";
 import { TaskCard } from "@/components/home/TaskCard";
 import { BlurredTeaser } from "@/components/home/BlurredTeaser";
+import { ResumeNotice } from "@/components/home/ResumeNotice";
 import { CATEGORY_LABEL, REAL_CATEGORIES } from "@/lib/constants";
 import type { Arc, Task, TaskEntry, UserArc, Week } from "@/lib/database.types";
 
@@ -23,6 +28,7 @@ export function OverviewTab({
   entries,
   userArc,
   onOpenAuth,
+  onGoToPlanDay,
 }: {
   arc: Arc;
   weeks: Week[];
@@ -30,25 +36,18 @@ export function OverviewTab({
   entries: TaskEntry[];
   userArc: UserArc | null;
   onOpenAuth: () => void;
+  onGoToPlanDay: (target: PlanDay) => void;
 }) {
   const joined = userArc !== null;
-  const heatmapStart = getArcStartDate(userArc);
-  const heatmapEnd = getArcEndDate(arc, userArc);
   const finished = joined && isArcFinished(arc, userArc);
-  const completedItems = entries
-    .filter((e) => e.completed)
-    .map((e) => ({
-      completed_at: e.updated_at,
-      weight: tasks.find((t) => t.id === e.task_id)?.weight ?? 1,
-    }));
-  const days = computeHeatmap(completedItems, heatmapStart, heatmapEnd);
-  const totalReps = completedItems.reduce((sum, i) => sum + i.weight, 0);
-  const longestStreak = computeLongestDayStreak(days);
+  const grid = computePlanGrid(tasks, entries, arc.duration_weeks);
+  const longestStreak = computeLongestPlanStreak(grid);
+  const { totalDays, completedDays } = computeDayProgress(grid);
 
   const { done: doneWeight, total: totalWeight } = taskProgress(tasks, entries);
   const overallPct = totalWeight ? Math.round((doneWeight / totalWeight) * 100) : 0;
 
-  const startLabel = heatmapStart.toLocaleDateString("en-US", {
+  const startLabel = getArcStartDate(userArc).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -60,6 +59,19 @@ export function OverviewTab({
   const weekTasks = tasks.filter((t) => t.week_number === weekNumber);
   const todaysTasks = weekTasks.filter((t) => t.day_number === currentDay);
   const weekDeliverables = weekTasks.filter((t) => t.day_number === null);
+
+  // Where the member actually is in the plan, as opposed to the calendar.
+  const today: PlanDay = { week: weekNumber, day: currentDay };
+  const resume = joined && !finished ? findResumePoint(grid, today) : null;
+  const resumeNotice = resume !== null && planDayIndex(resume) < planDayIndex(today) && (
+    <ResumeNotice
+      compact
+      resume={resume}
+      today={today}
+      daysBehind={countDaysBehind(grid, today)}
+      onJump={() => onGoToPlanDay(resume)}
+    />
+  );
 
   const categoryRows = REAL_CATEGORIES.map((category) => ({
     category,
@@ -76,20 +88,20 @@ export function OverviewTab({
         <p className="text-xs text-ink-muted">
           {joined ? `Since ${startLabel}` : `${arc.duration_weeks} weeks, from the day you join`}
         </p>
-        <p className="mt-2 font-heading text-5xl text-ink">{totalReps}</p>
+        <p className="mt-2 font-heading text-5xl text-ink">{doneWeight}</p>
         <div className="mt-5">
-          <HeatmapGrid days={days} />
+          <HeatmapGrid totalDays={totalDays} completedDays={completedDays} />
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="rounded-3xl border border-border bg-panel px-6 py-5">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+        <div className="rounded-3xl border border-border bg-panel px-4 py-5 sm:px-6">
           <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">
             Completion rate
           </p>
           <p className="mt-2 font-heading text-4xl text-ink">{overallPct}%</p>
         </div>
-        <div className="rounded-3xl border border-border bg-panel px-6 py-5">
+        <div className="rounded-3xl border border-border bg-panel px-4 py-5 sm:px-6">
           <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">
             Longest streak
           </p>
@@ -108,12 +120,16 @@ export function OverviewTab({
           </p>
         </div>
       ) : week?.is_rest_week ? (
-        <div className="rounded-3xl border border-border bg-panel px-6 py-8 text-center">
-          <p className="font-heading text-xl text-ink">🌙 Rest Week</p>
-          <p className="mt-1 text-sm text-ink-muted">No tasks this week, just breathe.</p>
-        </div>
+        <>
+          {resumeNotice}
+          <div className="rounded-3xl border border-border bg-panel px-6 py-8 text-center">
+            <p className="font-heading text-xl text-ink">🌙 Rest Week</p>
+            <p className="mt-1 text-sm text-ink-muted">No tasks this week, just breathe.</p>
+          </div>
+        </>
       ) : (
         <>
+          {resumeNotice}
           <div className="overflow-hidden rounded-3xl border border-border bg-panel">
             <div className="px-6 py-4">
               <p className="text-sm font-semibold text-ink">

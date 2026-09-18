@@ -5,10 +5,11 @@ export const WINTER_ARC_ID = "11111111-1111-1111-1111-111111111111";
 export const SITE_URL = "https://winter-arc-wheat.vercel.app";
 
 export const SITE_NAME = "Winter Arc";
+export const CONTACT_EMAIL = "fuwadmuhd@gmail.com";
 export const SITE_TITLE = "Winter Arc – A 12-Week Winter Challenge for Designers";
 export const SITE_TAGLINE = "A 12-week winter challenge for designers";
 export const SITE_DESCRIPTION =
-  "Winter Arc is a free 12-week challenge for UX, UI and product designers. Show up every day for a small task, ship a deliverable every week, keep your streak alive, and finish the winter a better designer.";
+  "Winter Arc is a free 12-week challenge for designers with two end results: a small product you actually ship, and a case study deck that tells its story. A small task every day, a deliverable every week, real conversations along the way.";
 export const SITE_KEYWORDS = [
   "winter arc",
   "designers winter arc",
@@ -48,30 +49,31 @@ export const REAL_CATEGORIES: TaskCategory[] = [
   "build_public",
 ];
 
+// Enum values are historical; the labels are what the plan means by them now.
 export const CATEGORY_LABEL: Record<string, string> = {
-  ui_practice: "UI Practice",
+  ui_practice: "Design",
   connection: "Connection",
-  learn_explain: "Learn & Explain",
-  rotating_lens: "Rotating Lens",
-  build_public: "Build in Public",
+  learn_explain: "Case Study",
+  rotating_lens: "Research",
+  build_public: "Build",
   reflection: "Catch Up",
 };
 
 export const CATEGORY_ACCENT: Record<string, "green" | "blue" | "orange" | "purple"> = {
-  "UI Practice": "green",
+  Design: "green",
   Connection: "orange",
-  "Learn & Explain": "blue",
-  "Rotating Lens": "purple",
-  "Build in Public": "purple",
+  "Case Study": "blue",
+  Research: "purple",
+  Build: "purple",
   "Catch Up": "blue",
 };
 
 export const CATEGORY_EMOJI: Record<string, string> = {
-  "UI Practice": "🎨",
+  Design: "🎨",
   Connection: "💬",
-  "Learn & Explain": "💡",
-  "Rotating Lens": "🔍",
-  "Build in Public": "🚀",
+  "Case Study": "📽️",
+  Research: "🔍",
+  Build: "🚀",
   "Catch Up": "☕",
 };
 

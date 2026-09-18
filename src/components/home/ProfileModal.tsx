@@ -2,8 +2,9 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ConfirmSheet } from "@/components/ConfirmSheet";
-import { resetArcProgress, signOutAction, updatePasswordAction } from "@/lib/actions";
+import { ConfirmPanel } from "@/components/ConfirmPanel";
+import { ChangePasswordPanel } from "@/components/home/ChangePasswordPanel";
+import { deleteAccountAction, resetArcProgress, signOutAction } from "@/lib/actions";
 
 export function ProfileModal({
   open,
@@ -27,23 +28,28 @@ export function ProfileModal({
   status: string;
 }) {
   const [pending, startTransition] = useTransition();
-  const [sheet, setSheet] = useState<"reset" | null>(null);
-  const [changingPassword, setChangingPassword] = useState(false);
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [pwError, setPwError] = useState<string | null>(null);
-  const [pwSuccess, setPwSuccess] = useState(false);
-  const [pwPending, startPwTransition] = useTransition();
+  // One sheet, swapped content: sub-flows replace the profile view instead
+  // of stacking a second sheet and backdrop on top.
+  const [view, setView] = useState<"profile" | "password" | "reset" | "signout" | "delete">("profile");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const router = useRouter();
+
+  function close() {
+    setView("profile");
+    onClose();
+  }
 
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      if (e.key !== "Escape") return;
+      // Escape steps back one level: sub-flow -> profile -> closed.
+      if (view === "profile") onClose();
+      else setView("profile");
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open, onClose, view]);
 
   if (!open) return null;
 
@@ -51,7 +57,20 @@ export function ProfileModal({
     startTransition(async () => {
       await resetArcProgress();
       router.refresh();
-      setSheet(null);
+      setView("profile");
+    });
+  }
+
+  function doDelete() {
+    setDeleteError(null);
+    startTransition(async () => {
+      const result = await deleteAccountAction();
+      if (result.error) {
+        setDeleteError(result.error);
+        return;
+      }
+      router.refresh();
+      close();
     });
   }
 
@@ -59,40 +78,7 @@ export function ProfileModal({
     startTransition(async () => {
       await signOutAction();
       router.refresh();
-      onClose();
-    });
-  }
-
-  function toggleChangePassword() {
-    setChangingPassword((v) => !v);
-    setNewPassword("");
-    setConfirmPassword("");
-    setPwError(null);
-    setPwSuccess(false);
-  }
-
-  function doChangePassword(e: React.FormEvent) {
-    e.preventDefault();
-    setPwError(null);
-
-    if (newPassword.length < 6) {
-      setPwError("Must be at least 6 characters.");
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setPwError("Passwords don't match.");
-      return;
-    }
-
-    startPwTransition(async () => {
-      const result = await updatePasswordAction(newPassword);
-      if (result.error) {
-        setPwError(result.error);
-        return;
-      }
-      setPwSuccess(true);
-      setNewPassword("");
-      setConfirmPassword("");
+      close();
     });
   }
 
@@ -101,7 +87,7 @@ export function ProfileModal({
       <button
         type="button"
         aria-label="Dismiss"
-        onClick={onClose}
+        onClick={close}
         className="backdrop-enter fixed inset-0 bg-ink/40"
       />
       <div
@@ -111,110 +97,125 @@ export function ProfileModal({
       >
         <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-border sm:hidden" />
 
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-ink text-base font-medium text-white">
-            {userAvatarUrl ? (
-              <img
-                src={userAvatarUrl}
-                alt=""
-                referrerPolicy="no-referrer"
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              (userEmail ?? "?").slice(0, 2).toUpperCase()
-            )}
+        {view === "password" && (
+          <div key="password" className="panel-enter">
+            <ChangePasswordPanel onBack={() => setView("profile")} />
           </div>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-ink">{userEmail}</p>
-            <p className="text-xs text-ink-muted">
-              Week {currentWeek} of {durationWeeks} · started {joinedLabel}
-            </p>
+        )}
+
+        {view === "reset" && (
+          <div key="reset" className="panel-enter">
+            <ConfirmPanel
+              title="Reset all progress?"
+              description={`Every checked task and note will be cleared, and your ${durationWeeks} weeks restart from today as Day 1. This can't be undone.`}
+              confirmLabel="Reset progress"
+              onConfirm={doReset}
+              onCancel={() => setView("profile")}
+              pending={pending}
+            />
           </div>
-        </div>
+        )}
 
-        <div className="mt-5 rounded-2xl bg-page px-4 py-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Arc</p>
-          <p className="mt-1 text-sm text-ink">{arcName}</p>
-          <p className="text-xs text-ink-muted">Status: {status}</p>
-        </div>
+        {view === "signout" && (
+          <div key="signout" className="panel-enter">
+            <ConfirmPanel
+              title="Sign out?"
+              description="Your progress is saved. Sign back in anytime to pick up where you left off."
+              confirmLabel="Sign out"
+              onConfirm={doSignOut}
+              onCancel={() => setView("profile")}
+              pending={pending}
+            />
+          </div>
+        )}
 
-        <div className="mt-5">
-          {!changingPassword ? (
-            <button
-              type="button"
-              onClick={toggleChangePassword}
-              className="w-full rounded-full border border-border bg-panel py-3 text-sm font-medium text-ink transition-check hover:border-primary"
-            >
-              Change password
-            </button>
-          ) : (
-            <form onSubmit={doChangePassword} noValidate className="space-y-2">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-ink">Change password</p>
-                <button
-                  type="button"
-                  onClick={toggleChangePassword}
-                  className="text-xs font-medium text-ink-faint transition-check hover:text-ink"
-                >
-                  Cancel
-                </button>
+        {view === "delete" && (
+          <div key="delete" className="panel-enter">
+            <ConfirmPanel
+              title="Delete your account?"
+              description="Your account, all progress and notes will be permanently deleted. This can't be undone."
+              confirmLabel="Delete account"
+              onConfirm={doDelete}
+              onCancel={() => {
+                setDeleteError(null);
+                setView("profile");
+              }}
+              pending={pending}
+            />
+            {deleteError && <p className="mt-3 text-center text-sm text-red">{deleteError}</p>}
+          </div>
+        )}
+
+        {view === "profile" && (
+          <div key="profile" className="panel-enter">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-ink text-base font-medium text-white">
+                {userAvatarUrl ? (
+                  <img
+                    src={userAvatarUrl}
+                    alt=""
+                    referrerPolicy="no-referrer"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  (userEmail ?? "?").slice(0, 2).toUpperCase()
+                )}
               </div>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="New password"
-                className="w-full rounded-xl border border-border bg-page px-4 py-3 text-sm text-ink placeholder:text-ink-faint outline-none focus:border-primary"
-              />
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Confirm new password"
-                className="w-full rounded-xl border border-border bg-page px-4 py-3 text-sm text-ink placeholder:text-ink-faint outline-none focus:border-primary"
-              />
-              {pwError && <p className="text-sm text-red">{pwError}</p>}
-              {pwSuccess && <p className="text-sm text-green">Password updated.</p>}
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-ink">
+                  {userEmail}
+                </p>
+                <p className="text-xs text-ink-muted">
+                  Week {currentWeek} of {durationWeeks} · started {joinedLabel}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-2xl bg-page px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">
+                Arc
+              </p>
+              <p className="mt-1 text-sm text-ink">{arcName}</p>
+              <p className="text-xs text-ink-muted">Status: {status}</p>
+            </div>
+
+            <div className="mt-5 space-y-2">
               <button
-                type="submit"
-                disabled={pwPending}
-                className="w-full rounded-full bg-primary py-3 text-sm font-semibold text-white transition-check hover:opacity-90 disabled:opacity-60"
+                type="button"
+                disabled={pending}
+                onClick={() => setView("password")}
+                className="w-full rounded-full border border-border bg-panel py-3 text-sm font-medium text-ink transition-check hover:border-primary disabled:opacity-60"
               >
-                {pwPending ? "Saving…" : "Save new password"}
+                Change password
               </button>
-            </form>
-          )}
-        </div>
-
-        <div className="mt-3 space-y-2">
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() => setSheet("reset")}
-            className="w-full rounded-full border border-border bg-panel py-3 text-sm font-medium text-ink transition-check hover:border-primary disabled:opacity-60"
-          >
-            Reset progress
-          </button>
-          <button
-            type="button"
-            disabled={pending}
-            onClick={doSignOut}
-            className="w-full rounded-full py-3 text-sm font-medium text-red transition-check hover:opacity-80 disabled:opacity-60"
-          >
-            Sign out
-          </button>
-        </div>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => setView("reset")}
+                className="w-full rounded-full border border-border bg-panel py-3 text-sm font-medium text-ink transition-check hover:border-primary disabled:opacity-60"
+              >
+                Reset progress
+              </button>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => setView("signout")}
+                className="w-full rounded-full py-3 text-sm font-medium text-red transition-check hover:opacity-80 disabled:opacity-60"
+              >
+                Sign out
+              </button>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => setView("delete")}
+                className="w-full py-2 text-xs font-medium text-ink-faint transition-check hover:text-red disabled:opacity-60"
+              >
+                Delete account
+              </button>
+            </div>
+          </div>
+        )}
       </div>
-
-      <ConfirmSheet
-        open={sheet === "reset"}
-        onClose={() => setSheet(null)}
-        title="Reset all progress?"
-        description={`Every checked task and note will be cleared, and your ${durationWeeks} weeks restart from today as Day 1. This can't be undone.`}
-        confirmLabel="Reset progress"
-        onConfirm={doReset}
-        pending={pending}
-      />
     </div>
   );
 }

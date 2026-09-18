@@ -19,13 +19,6 @@ function daysBetween(a: Date, b: Date): number {
   return Math.round((utcB - utcA) / 86_400_000);
 }
 
-function dateKey(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
 // --- Timeline ----------------------------------------------------------------
 // Every member runs their own arc: Day 1 is the local calendar day they
 // joined, and the arc lasts exactly duration_weeks * 7 days from there.
@@ -59,6 +52,15 @@ export function isArcFinished(arc: Duration, userArc: Membership, now = new Date
   return daysIntoArc(userArc, now) >= arc.duration_weeks * 7;
 }
 
+export function getWeekDateRange(
+  userArc: Membership,
+  weekNumber: number,
+  now = new Date(),
+): { start: Date; end: Date } {
+  const start = addDays(getArcStartDate(userArc, now), (weekNumber - 1) * 7);
+  return { start, end: addDays(start, 6) };
+}
+
 // --- Task progress -----------------------------------------------------------
 
 export function entryFor(entries: TaskEntry[], taskId: string): TaskEntry | undefined {
@@ -78,57 +80,106 @@ export function taskProgress(tasks: Task[], entries: TaskEntry[]): TaskProgress 
   return { done, total };
 }
 
-/** How many of this week's connection-task units are done, against the
- * week's connection goal. */
-export function getConnectionProgress(
-  weekTasks: Task[],
-  entries: TaskEntry[],
-  connectionGoal: number | null,
-): { done: number; goal: number } {
-  const connectionTasks = weekTasks.filter((t) => t.category === "connection");
-  const { done } = taskProgress(connectionTasks, entries);
-  return { done, goal: connectionGoal ?? 0 };
-}
+// --- Plan grid ---------------------------------------------------------------
+// Progress is tracked against the plan (Week N, Day M), not the calendar day a
+// box was ticked, so catching up on a missed day fills that day's cell.
 
-export type HeatmapDay = { date: string; weekday: number; count: number };
+export type PlanCell = { week: number; day: number; done: number; total: number };
+export type PlanRow = { week: number; cells: PlanCell[] };
 
-/**
- * One entry per calendar day from `startDate` through `endDate` (inclusive),
- * with the real weighted activity completed that day, derived from
- * `task_entries`, never fabricated.
- */
-export function computeHeatmap(
-  items: { completed_at: string; weight: number }[],
-  startDate: Date,
-  endDate: Date,
-): HeatmapDay[] {
-  const byDay = new Map<string, number>();
-  for (const item of items) {
-    if (item.weight <= 0) continue;
-    const key = dateKey(startOfDay(new Date(item.completed_at)));
-    byDay.set(key, (byDay.get(key) ?? 0) + item.weight);
+const DAYS_PER_WEEK = 7;
+
+/** One row per week, one cell per plan day, with weighted done/total for that
+ * day's tasks. Deliverables (no day) are left out. `total` 0 means no tasks. */
+export function computePlanGrid(tasks: Task[], entries: TaskEntry[], durationWeeks: number): PlanRow[] {
+  const byDay = new Map<string, Task[]>();
+  for (const task of tasks) {
+    if (task.day_number === null) continue;
+    const key = `${task.week_number}:${task.day_number}`;
+    byDay.set(key, [...(byDay.get(key) ?? []), task]);
   }
 
-  const days: HeatmapDay[] = [];
-  const end = startOfDay(endDate);
-  for (let d = startOfDay(startDate); d.getTime() <= end.getTime(); d = addDays(d, 1)) {
-    days.push({ date: dateKey(d), weekday: d.getDay(), count: byDay.get(dateKey(d)) ?? 0 });
+  const rows: PlanRow[] = [];
+  for (let week = 1; week <= durationWeeks; week++) {
+    const cells: PlanCell[] = [];
+    for (let day = 1; day <= DAYS_PER_WEEK; day++) {
+      const { done, total } = taskProgress(byDay.get(`${week}:${day}`) ?? [], entries);
+      cells.push({ week, day, done, total });
+    }
+    rows.push({ week, cells });
   }
-  return days;
+  return rows;
 }
 
-/** Longest run of consecutive calendar days with at least one completed
- * task, across the given heatmap window. */
-export function computeLongestDayStreak(days: HeatmapDay[]): number {
+/** Days of work completed, as a fraction-aware count: each plan day with
+ * tasks contributes done/total, so two half-done days add up to one full
+ * square. `totalDays` counts only days that have tasks. */
+export function computeDayProgress(grid: PlanRow[]): { totalDays: number; completedDays: number } {
+  let totalDays = 0;
+  let completedDays = 0;
+  for (const row of grid) {
+    for (const cell of row.cells) {
+      if (cell.total === 0) continue;
+      totalDays++;
+      completedDays += cell.done / cell.total;
+    }
+  }
+  return { totalDays, completedDays };
+}
+
+/** Longest run of consecutive plan days with at least one task done. Days
+ * with no tasks (rest days, the rest week) neither extend nor break a run. */
+export function computeLongestPlanStreak(grid: PlanRow[]): number {
   let longest = 0;
   let current = 0;
-  for (const day of days) {
-    if (day.count > 0) {
-      current++;
-      longest = Math.max(longest, current);
-    } else {
-      current = 0;
+  for (const row of grid) {
+    for (const cell of row.cells) {
+      if (cell.total === 0) continue;
+      if (cell.done > 0) {
+        current++;
+        longest = Math.max(longest, current);
+      } else {
+        current = 0;
+      }
     }
   }
   return longest;
+}
+
+// --- Resume point ------------------------------------------------------------
+// "Today" is calendar-driven, but where someone actually is in the plan is the
+// first day they haven't finished. Showing both keeps the calendar honest
+// while pointing a returning member at the right place to pick up.
+
+export type PlanDay = { week: number; day: number };
+
+/** Position in the arc, for ordering plan days. */
+export function planDayIndex(d: PlanDay): number {
+  return (d.week - 1) * DAYS_PER_WEEK + d.day;
+}
+
+function unfinishedDaysUpTo(grid: PlanRow[], today: PlanDay): PlanCell[] {
+  const limit = planDayIndex(today);
+  const cells: PlanCell[] = [];
+  for (const row of grid) {
+    for (const cell of row.cells) {
+      if (planDayIndex(cell) > limit) return cells;
+      if (cell.total > 0 && cell.done < cell.total) cells.push(cell);
+    }
+  }
+  return cells;
+}
+
+/** First plan day, no later than `today`, with tasks not all done. null when
+ * everything up to today is finished. */
+export function findResumePoint(grid: PlanRow[], today: PlanDay): PlanDay | null {
+  const [first] = unfinishedDaysUpTo(grid, today);
+  return first ? { week: first.week, day: first.day } : null;
+}
+
+/** Unfinished plan days strictly before `today`, i.e. how far behind the
+ * calendar someone is. */
+export function countDaysBehind(grid: PlanRow[], today: PlanDay): number {
+  const todayIndex = planDayIndex(today);
+  return unfinishedDaysUpTo(grid, today).filter((c) => planDayIndex(c) < todayIndex).length;
 }

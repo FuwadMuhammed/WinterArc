@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { googleSansFlex } from "./fonts";
+import { PostHog } from "@/components/PostHog";
 import {
   SITE_DESCRIPTION,
   SITE_KEYWORDS,
@@ -80,6 +81,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${googleSansFlex.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-page text-ink font-sans">
+        <PostHog />
         {children}
         <script
           type="application/ld+json"

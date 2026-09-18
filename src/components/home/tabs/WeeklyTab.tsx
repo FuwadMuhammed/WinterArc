@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { entryFor, getConnectionProgress, getCurrentWeek, isArcFinished } from "@/lib/arc-logic";
+import { entryFor, getCurrentWeek, getWeekDateRange, isArcFinished } from "@/lib/arc-logic";
 import { TaskCard } from "@/components/home/TaskCard";
 import { BlurredTeaser } from "@/components/home/BlurredTeaser";
 import { ShareModal } from "@/components/home/ShareModal";
 import { ArcFinishedNotice } from "@/components/home/ArcFinishedNotice";
+import { WeekNav } from "@/components/home/WeekNav";
+import { NextWeekNotice } from "@/components/home/NextWeekNotice";
 import { weeklyShareText } from "@/lib/constants";
 import type { Arc, Task, TaskEntry, UserArc, Week } from "@/lib/database.types";
 
@@ -15,6 +17,8 @@ export function WeeklyTab({
   tasks,
   entries,
   userArc,
+  selectedWeek,
+  onSelectWeek,
   onOpenAuth,
 }: {
   arc: Arc;
@@ -22,12 +26,15 @@ export function WeeklyTab({
   tasks: Task[];
   entries: TaskEntry[];
   userArc: UserArc | null;
+  selectedWeek: number;
+  onSelectWeek: (week: number) => void;
   onOpenAuth: () => void;
 }) {
   const joined = userArc !== null;
   const finished = joined && isArcFinished(arc, userArc);
   const locked = !joined || finished;
-  const weekNumber = getCurrentWeek(arc, userArc);
+  const currentWeek = getCurrentWeek(arc, userArc);
+  const weekNumber = selectedWeek;
   const week = weeks.find((w) => w.week_number === weekNumber);
   const weekTasks = tasks.filter((t) => t.week_number === weekNumber);
 
@@ -37,24 +44,55 @@ export function WeeklyTab({
     : 0;
   const [shareOpen, setShareOpen] = useState(false);
   const prevCompletedRef = useRef(completedDeliverables);
+  const prevWeekRef = useRef(weekNumber);
 
   useEffect(() => {
-    if (completedDeliverables > prevCompletedRef.current) setShareOpen(true);
+    // Switching weeks changes the count too; only a real completion in the
+    // same week should open the share prompt.
+    if (prevWeekRef.current === weekNumber && completedDeliverables > prevCompletedRef.current) {
+      setShareOpen(true);
+    }
+    prevWeekRef.current = weekNumber;
     prevCompletedRef.current = completedDeliverables;
-  }, [completedDeliverables]);
+  }, [completedDeliverables, weekNumber]);
+
+  const unlockDate =
+    joined && weekNumber < arc.duration_weeks ? getWeekDateRange(userArc, weekNumber + 1).start : undefined;
+  const nav = joined && (
+    <WeekNav
+      selectedWeek={weekNumber}
+      currentWeek={currentWeek}
+      durationWeeks={arc.duration_weeks}
+      onChange={onSelectWeek}
+      dateRange={getWeekDateRange(userArc, weekNumber)}
+      unlockDate={unlockDate}
+    />
+  );
+  const weekDone = joined && weekTasks.every((t) => entryFor(entries, t.id)?.completed);
+  const notice = joined && !finished && weekNumber === currentWeek && (
+    <NextWeekNotice
+      week={weekNumber}
+      durationWeeks={arc.duration_weeks}
+      unlockDate={unlockDate}
+      weekDone={weekDone}
+    />
+  );
 
   if (week?.is_rest_week) {
     return (
-      <div className="rounded-3xl border border-border bg-panel px-6 py-12 text-center">
-        <p className="font-heading text-2xl text-ink">🌙 Rest Week</p>
-        <p className="mt-2 text-sm text-ink-muted">
-          No weekly deliverable, and no connection goal, just breathe.
-        </p>
+      <div className="space-y-4">
+        {nav}
+        <div className="rounded-3xl border border-border bg-panel px-6 py-12 text-center">
+          <p className="font-heading text-2xl text-ink">🌙 Rest Week</p>
+          <p className="mt-2 text-sm text-ink-muted">
+            No weekly deliverable this week, just breathe.
+          </p>
+        </div>
+        {notice}
       </div>
     );
   }
 
-  const connection = getConnectionProgress(weekTasks, entries, week?.connection_goal ?? null);
   const visibleCount = Math.min(2, deliverables.length);
   const visible = deliverables.slice(0, visibleCount);
   const hidden = deliverables.slice(visibleCount);
@@ -62,20 +100,7 @@ export function WeeklyTab({
   return (
     <div className="space-y-4">
       {finished && <ArcFinishedNotice />}
-      <div className="rounded-3xl border border-border bg-panel px-6 py-5">
-        <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">
-          Connection goal - Week {weekNumber}
-        </p>
-        <p className="mt-2 font-heading text-4xl text-ink">
-          {connection.done}
-          <span className="text-lg text-ink-faint"> / {connection.goal}</span>
-        </p>
-        <p className="mt-1 text-sm text-ink-muted">
-          {weekNumber === 1
-            ? "Only 1 of the week's 6 connection prompts is needed, pick whichever feels natural."
-            : "Complete this many of the week's connection prompts (Daily tab) to hit the goal."}
-        </p>
-      </div>
+      {nav}
 
       <div className="overflow-hidden rounded-3xl border border-border bg-panel">
         <div className="px-6 py-4">
@@ -117,6 +142,8 @@ export function WeeklyTab({
           </div>
         )}
       </div>
+
+      {notice}
 
       <ShareModal
         key={weekNumber}

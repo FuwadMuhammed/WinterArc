@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   signInAction,
   signUpAction,
@@ -254,6 +255,18 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
                 Continue with Google
               </button>
             </form>
+
+            <p className="mt-5 text-center text-xs leading-relaxed text-ink-faint">
+              By continuing you agree to the{" "}
+              <Link href="/terms" target="_blank" className="underline underline-offset-2 hover:text-ink">
+                Terms
+              </Link>{" "}
+              and{" "}
+              <Link href="/privacy" target="_blank" className="underline underline-offset-2 hover:text-ink">
+                Privacy Policy
+              </Link>
+              .
+            </p>
           </>
         )}
       </div>

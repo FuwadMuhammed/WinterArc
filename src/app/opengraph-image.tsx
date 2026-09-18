@@ -7,7 +7,7 @@ export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 const HEADLINE = "Designers Winter Arc";
-const PILLS = ["UI Practice", "Connection", "Learn & Explain", "Rotating Lens", "Build in Public"];
+const PILLS = ["Research", "Design", "Build", "Case Study", "Connection"];
 
 // Pulls a static TTF for the site's heading font at build time; falls back to the
 // bundled default font if the network is unavailable.
