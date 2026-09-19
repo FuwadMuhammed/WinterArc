@@ -20,7 +20,11 @@ declare global {
 }
 
 function client(): PostHogClient | undefined {
-  return typeof window === "undefined" ? undefined : window.posthog;
+  if (typeof window === "undefined") return undefined;
+  const ph = window.posthog;
+  // Only trust a real client (or the snippet's queue stub), never some other
+  // global that happens to share the name.
+  return typeof ph?.capture === "function" ? ph : undefined;
 }
 
 export type AnalyticsEvent =

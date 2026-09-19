@@ -26,5 +26,7 @@ posthog.init(${JSON.stringify(POSTHOG_KEY)}, {
 });
 `;
 
-  return <Script id="posthog" strategy="afterInteractive" dangerouslySetInnerHTML={{ __html: snippet }} />;
+  // Not id="posthog": browsers expose element ids as window globals, and the
+  // snippet would then find the <script> element where it expects the queue.
+  return <Script id="posthog-init" strategy="afterInteractive" dangerouslySetInnerHTML={{ __html: snippet }} />;
 }
