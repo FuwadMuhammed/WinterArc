@@ -2,6 +2,9 @@ import type { TaskCategory } from "@/lib/database.types";
 
 export const WINTER_ARC_ID = "11111111-1111-1111-1111-111111111111";
 
+/** A proof note is a link or a sentence, not an essay. Enforced server-side too. */
+export const NOTE_MAX_LENGTH = 500;
+
 export const SITE_URL = "https://winterarc.byfu.app";
 
 export const SITE_NAME = "Winter Arc";

@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getHomeData } from "@/lib/arc-data";
 import { ensureJoined } from "@/lib/ensure-joined";
+import { NOTE_MAX_LENGTH } from "@/lib/constants";
 
 export type AuthResult = { error: string | null; message?: string | null };
 
@@ -122,6 +123,7 @@ export async function joinArcAction() {
 export async function setTaskEntry(taskId: string, completed: boolean, note: string) {
   const { userArc } = await getHomeData();
   if (!userArc) throw new Error("Not joined");
+  const trimmedNote = note.trim().slice(0, NOTE_MAX_LENGTH);
   const supabase = await createClient();
 
   const { error } = await supabase.from("task_entries").upsert(
@@ -129,7 +131,7 @@ export async function setTaskEntry(taskId: string, completed: boolean, note: str
       user_arc_id: userArc.id,
       task_id: taskId,
       completed,
-      note: note.trim() || null,
+      note: trimmedNote || null,
     },
     { onConflict: "user_arc_id,task_id" },
   );

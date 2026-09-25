@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import confetti from "canvas-confetti";
 import { setTaskEntry } from "@/lib/actions";
 import { track } from "@/lib/analytics";
-import { CATEGORY_LABEL, CATEGORY_EMOJI, taskCardColor } from "@/lib/constants";
+import { CATEGORY_LABEL, CATEGORY_EMOJI, NOTE_MAX_LENGTH, taskCardColor } from "@/lib/constants";
 import type { Task, TaskEntry } from "@/lib/database.types";
 
 function CheckMark() {
@@ -153,6 +153,7 @@ export function TaskCard({
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="Paste a link, or a short note…"
+              maxLength={NOTE_MAX_LENGTH}
               disabled={completed || readOnly}
               className="w-full rounded-full border border-border bg-white px-3.5 py-1.5 text-sm text-ink outline-none focus:border-primary disabled:opacity-60"
             />
