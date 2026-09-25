@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import type { AuthResult } from "@/lib/actions";
 import type { UserArcStatus } from "@/lib/database.types";
@@ -8,6 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { safeEqual } from "./session-token";
 import { clearAdminSessionCookie, setAdminSessionCookie } from "./session";
 import { requireAdmin } from "./dal";
+import { clearFailedLogins, loginRetryAfter, recordFailedLogin } from "./login-throttle";
 
 export async function adminLoginAction(
   _prev: AuthResult | undefined,
@@ -20,11 +22,19 @@ export async function adminLoginAction(
   const expectedPass = process.env.ADMIN_PASSWORD ?? "";
   if (!expectedUser || !expectedPass) return { error: "Admin login is not configured." };
 
+  const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const wait = loginRetryAfter(ip);
+  if (wait > 0) return { error: `Too many attempts. Try again in ${wait}s.` };
+
   // Evaluate both so timing doesn't reveal which one failed.
   const userOk = safeEqual(username, expectedUser);
   const passOk = safeEqual(password, expectedPass);
-  if (!(userOk && passOk)) return { error: "Invalid username or password." };
+  if (!(userOk && passOk)) {
+    recordFailedLogin(ip);
+    return { error: "Invalid username or password." };
+  }
 
+  clearFailedLogins(ip);
   await setAdminSessionCookie(username);
   redirect("/admin");
 }

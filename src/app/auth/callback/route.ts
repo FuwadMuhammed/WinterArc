@@ -2,10 +2,17 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { ensureJoined } from "@/lib/ensure-joined";
 
+/** Only same-site paths: a single leading slash, so "//evil.com", "@evil.com"
+ * or "https://evil.com" can't turn the redirect into an open one. */
+function safeNextPath(value: string | null): string {
+  if (!value) return "/";
+  return /^\/(?![\/\\])/.test(value) ? value : "/";
+}
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/";
+  const next = safeNextPath(searchParams.get("next"));
 
   if (code) {
     const supabase = await createClient();
