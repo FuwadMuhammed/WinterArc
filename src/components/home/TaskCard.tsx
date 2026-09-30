@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import confetti from "canvas-confetti";
 import { setTaskEntry } from "@/lib/actions";
 import { track } from "@/lib/analytics";
+import { useTaskEntryOverride } from "@/components/home/TaskEntryOverride";
 import { CATEGORY_LABEL, CATEGORY_EMOJI, NOTE_MAX_LENGTH, taskCardColor } from "@/lib/constants";
 import type { Task, TaskEntry } from "@/lib/database.types";
 
@@ -52,12 +53,14 @@ export function TaskCard({
 }) {
   const [completed, setCompleted] = useState(entry?.completed ?? false);
   const [note, setNote] = useState(entry?.note ?? "");
+  const [syncError, setSyncError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
   const checkRef = useRef<HTMLButtonElement>(null);
   const submitRef = useRef<HTMLButtonElement>(null);
   const toggleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestCompletedRef = useRef(completed);
+  const applyLocalEntry = useTaskEntryOverride();
 
   useEffect(() => {
     return () => {
@@ -89,39 +92,68 @@ export function TaskCard({
    * Rapid clicks only update local state; the write to the server is
    * debounced so a flurry of clicks collapses into one request for
    * whatever the final state ends up being. */
+  /** On a failed write, put the checkbox and the shared entries override
+   * back the way they were, and say so briefly, instead of leaving the UI
+   * showing a change that never actually saved. */
+  function revert(previous: boolean) {
+    setCompleted(previous);
+    latestCompletedRef.current = previous;
+    applyLocalEntry(task.id, { completed: previous, note });
+    setSyncError("Couldn't save, please try again.");
+  }
+
   function toggle() {
+    const previous = completed;
     const next = !completed;
+    setSyncError(null);
     setCompleted(next);
     latestCompletedRef.current = next;
+    applyLocalEntry(task.id, { completed: next, note });
     if (next) celebrate(originFor(checkRef.current));
     track(next ? "task_completed" : "task_uncompleted", taskProps);
 
     if (toggleDebounceRef.current) clearTimeout(toggleDebounceRef.current);
     toggleDebounceRef.current = setTimeout(() => {
       startTransition(async () => {
-        await setTaskEntry(task.id, latestCompletedRef.current, note);
-        router.refresh();
+        try {
+          await setTaskEntry(task.id, latestCompletedRef.current, note);
+          router.refresh();
+        } catch {
+          revert(previous);
+        }
       });
     }, 500);
   }
 
   function submitProof() {
     if (!note.trim()) return;
+    setSyncError(null);
     setCompleted(true);
+    applyLocalEntry(task.id, { completed: true, note });
     celebrate(originFor(submitRef.current));
     track("proof_submitted", { ...taskProps, note_length: note.trim().length });
     startTransition(async () => {
-      await setTaskEntry(task.id, true, note);
-      router.refresh();
+      try {
+        await setTaskEntry(task.id, true, note);
+        router.refresh();
+      } catch {
+        revert(false);
+      }
     });
   }
 
   function undoProof() {
+    setSyncError(null);
     setCompleted(false);
+    applyLocalEntry(task.id, { completed: false, note });
     track("task_uncompleted", taskProps);
     startTransition(async () => {
-      await setTaskEntry(task.id, false, note);
-      router.refresh();
+      try {
+        await setTaskEntry(task.id, false, note);
+        router.refresh();
+      } catch {
+        revert(true);
+      }
     });
   }
 
@@ -144,6 +176,7 @@ export function TaskCard({
           {task.heading}
         </p>
         <p className="mt-0.5 text-sm text-ink-muted">{task.subcontent}</p>
+        {syncError && <p className="mt-1 text-xs font-medium text-red">{syncError}</p>}
 
         {task.requires_proof && (
           <div className="mt-2 flex gap-2">

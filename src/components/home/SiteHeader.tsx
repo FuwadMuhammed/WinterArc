@@ -1,10 +1,8 @@
 "use client";
 
-import { useTransition } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Logo } from "@/components/Logo";
-import { joinArcAction } from "@/lib/actions";
+import { useJoinArc } from "@/lib/useJoinArc";
 
 export function SiteHeader({
   joined,
@@ -21,20 +19,8 @@ export function SiteHeader({
   onOpenAuth: () => void;
   onOpenProfile: () => void;
 }) {
-  const [pending, startTransition] = useTransition();
-  const router = useRouter();
+  const { pending, error, handleJoinClick } = useJoinArc(loggedIn, onOpenAuth);
   const initials = (userEmail ?? "?").slice(0, 2).toUpperCase();
-
-  function handleJoinClick() {
-    if (loggedIn) {
-      startTransition(async () => {
-        await joinArcAction();
-        router.refresh();
-      });
-    } else {
-      onOpenAuth();
-    }
-  }
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-tint/80 backdrop-blur">
@@ -70,14 +56,24 @@ export function SiteHeader({
               )}
             </button>
           ) : (
-            <button
-              type="button"
-              onClick={handleJoinClick}
-              disabled={pending}
-              className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white transition-check hover:opacity-90 disabled:opacity-60"
-            >
-              {pending ? "Joining…" : "Join"}
-            </button>
+            <span className="relative inline-flex">
+              <button
+                type="button"
+                onClick={handleJoinClick}
+                disabled={pending}
+                className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white transition-check hover:opacity-90 disabled:opacity-60"
+              >
+                {pending ? "Joining…" : "Join"}
+              </button>
+              {error && (
+                <span
+                  role="alert"
+                  className="absolute right-0 top-full mt-2 w-max max-w-[220px] rounded-xl border border-red/20 bg-red-soft px-3 py-1.5 text-xs font-medium text-red shadow-sm"
+                >
+                  {error}
+                </span>
+              )}
+            </span>
           )}
         </div>
       </div>

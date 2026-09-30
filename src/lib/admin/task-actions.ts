@@ -1,10 +1,11 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import type { AuthResult } from "@/lib/actions";
 import type { TaskCategory } from "@/lib/database.types";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { WINTER_ARC_ID } from "@/lib/constants";
+import { PLAN_CACHE_TAG } from "@/lib/arc-data";
 import { requireAdmin } from "./dal";
 
 const CATEGORIES: TaskCategory[] = [
@@ -27,6 +28,9 @@ export type TaskInput = {
 };
 
 function planChanged() {
+  // { expire: 0 } to match the previous behavior: admins see their edit
+  // immediately rather than briefly serving stale plan data.
+  revalidateTag(PLAN_CACHE_TAG, { expire: 0 });
   revalidatePath("/");
   revalidatePath("/about");
   revalidatePath("/admin");
