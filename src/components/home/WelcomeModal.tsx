@@ -42,12 +42,39 @@ export function useWelcomeSeen(userArcId: string | null) {
   return { seen, markSeen };
 }
 
+const STEP_BG: Record<string, string> = {
+  purple: "bg-purple-soft",
+  green: "bg-green-soft",
+  orange: "bg-orange-soft",
+  blue: "bg-blue-soft",
+};
+
 const STEPS = [
-  { emoji: "🔍", text: "Weeks 1–2: pick a real problem and scope one core flow." },
-  { emoji: "🎨", text: "Weeks 3–4: design it, test it with people, fix what confuses them." },
-  { emoji: "🚀", text: "Weeks 5–8: build it with any tool you can ship with, then get it used." },
-  { emoji: "📽️", text: "Weeks 9–12: turn the journey into a case study deck and launch both." },
-];
+  {
+    emoji: "🔍",
+    accent: "purple",
+    range: "Weeks 1–2",
+    text: "Pick a real problem and scope one core flow.",
+  },
+  {
+    emoji: "🎨",
+    accent: "green",
+    range: "Weeks 3–4",
+    text: "Design it, test it with people, fix what confuses them.",
+  },
+  {
+    emoji: "🚀",
+    accent: "orange",
+    range: "Weeks 5–8",
+    text: "Build it with any tool you can ship with, then get it used.",
+  },
+  {
+    emoji: "📽️",
+    accent: "blue",
+    range: "Weeks 9–12",
+    text: "Turn the journey into a case study deck and launch both.",
+  },
+] as const;
 
 export function WelcomeModal({
   open,
@@ -83,37 +110,52 @@ export function WelcomeModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="welcome-title"
-        className="sheet-enter relative w-full max-w-sm rounded-t-3xl border border-border bg-panel p-6 pb-8 shadow-xl sm:rounded-3xl sm:pb-6"
+        className="sheet-enter relative flex max-h-[min(720px,90vh)] w-full max-w-sm flex-col rounded-t-3xl border border-border bg-panel shadow-xl sm:rounded-3xl"
       >
-        <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-border sm:hidden" />
+        <div className="mx-auto mb-1 mt-3 h-1 w-10 shrink-0 rounded-full bg-border sm:hidden" />
 
-        <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">You&apos;re in</p>
-        <h2 id="welcome-title" className="mt-2 font-heading text-2xl text-ink">
-          Welcome to the Winter Arc 👋
-        </h2>
-        <p className="mt-2 text-sm leading-relaxed text-ink-muted">
-          {durationWeeks} weeks, one small task a day, and two things to show for it at the end: a
-          product you shipped and a case study that tells its story. Today is Day 1.
-        </p>
+        <div className="overflow-y-auto px-6 pb-2 pt-6 sm:pt-6">
+          <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">You&apos;re in</p>
+          <h2 id="welcome-title" className="mt-2 font-heading text-2xl text-ink">
+            Welcome to the Winter Arc 👋
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-ink-muted">
+            {durationWeeks} weeks, one small task a day, two things to show for it at the end: a
+            product you shipped, and a case study that tells its story.
+          </p>
 
-        <ul className="mt-5 space-y-3">
-          {STEPS.map((s) => (
-            <li key={s.text} className="flex gap-3 text-sm text-ink-muted">
-              <span aria-hidden="true" className="shrink-0 text-lg leading-none">
-                {s.emoji}
-              </span>
-              <span>{s.text}</span>
-            </li>
-          ))}
-        </ul>
+          <ol className="mt-5">
+            {STEPS.map((s, i) => (
+              <li key={s.range} className="relative flex gap-3.5 pb-4 last:pb-0">
+                {i < STEPS.length - 1 && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute left-[17px] top-9 h-[calc(100%-1.5rem)] w-px bg-border"
+                  />
+                )}
+                <span
+                  aria-hidden="true"
+                  className={`relative z-10 flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full text-base ${STEP_BG[s.accent]}`}
+                >
+                  {s.emoji}
+                </span>
+                <div className="min-w-0 pt-1">
+                  <p className="text-sm font-semibold text-ink">{s.range}</p>
+                  <p className="mt-0.5 text-sm leading-snug text-ink-muted">{s.text}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
 
-        <p className="mt-5 rounded-2xl bg-page px-4 py-3 text-xs leading-relaxed text-ink-muted">
-          Tick tasks in the <strong className="text-ink">Daily</strong> tab, ship the week&apos;s
-          deliverable in <strong className="text-ink">Weekly</strong>, and share your work along the
-          way, the conversations are half the point.
-        </p>
+          <p className="mt-5 rounded-2xl bg-page px-4 py-3 text-xs leading-relaxed text-ink-muted">
+            Today is <strong className="text-ink">Day 1</strong>. Tick tasks in{" "}
+            <strong className="text-ink">Daily</strong>, ship the week&apos;s deliverable in{" "}
+            <strong className="text-ink">Weekly</strong>, and share your work along the way, the
+            conversations are half the point.
+          </p>
+        </div>
 
-        <div className="mt-6 flex flex-col gap-2">
+        <div className="flex shrink-0 flex-col gap-2 px-6 pb-6 pt-4 sm:pb-6">
           <button
             type="button"
             onClick={onStart}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { FieldTooltip } from "@/components/FieldTooltip";
 import {
@@ -25,6 +25,7 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
   const [pending, startTransition] = useTransition();
   const [resendPending, startResendTransition] = useTransition();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!open) return;
@@ -89,7 +90,14 @@ export function AuthModal({ open, onClose }: { open: boolean; onClose: () => voi
         setAwaitingConfirmation(mode === "signup");
         return;
       }
-      router.refresh();
+      // Signing in/up here also joins the arc (there's a single arc), so
+      // land wherever the tracker actually lives instead of leaving people
+      // on About/Privacy/etc. with nothing visibly different.
+      if (pathname === "/") {
+        router.refresh();
+      } else {
+        router.push("/");
+      }
       onClose();
     });
   }

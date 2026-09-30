@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { nextWeekTooltip } from "@/components/home/NextWeekNotice";
 
 function formatRange(start: Date, end: Date): string {
@@ -28,6 +29,22 @@ export function WeekNav({
   /** When the following week opens; shown in the locked "next" tooltip. */
   unlockDate?: Date;
 }) {
+  // The locked "next" button is disabled, so it never gets hover, focus, or
+  // click events, which means the tooltip below it never had a way to show
+  // up on a touch device. This state gives it a tap-to-reveal path too; the
+  // hover/focus-visible classes stay for mouse and keyboard users.
+  const [tipOpen, setTipOpen] = useState(false);
+  const wrapperRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!tipOpen) return;
+    function onOutside(e: PointerEvent) {
+      if (!wrapperRef.current?.contains(e.target as Node)) setTipOpen(false);
+    }
+    document.addEventListener("pointerdown", onOutside);
+    return () => document.removeEventListener("pointerdown", onOutside);
+  }, [tipOpen]);
+
   return (
     <div className="flex items-center justify-between rounded-3xl border border-border bg-panel px-4 py-3">
       <button
@@ -53,14 +70,26 @@ export function WeekNav({
         )}
       </div>
       {selectedWeek >= currentWeek ? (
-        // Disabled buttons don't get hover events, so the tooltip hangs off a wrapper.
-        <span className="group relative inline-flex" tabIndex={0}>
-          <button type="button" aria-label="Next week" disabled className={BUTTON_CLASS}>
+        // A native `disabled` button never dispatches click, focus, or
+        // (on touch) tap events at all — not even to ancestors — so a tap
+        // here used to do nothing and the tooltip below could never show on
+        // a touch device. Keeping it a plain enabled button, just styled and
+        // announced as locked, is what lets that tap open the tooltip.
+        <span ref={wrapperRef} className="group relative inline-flex">
+          <button
+            type="button"
+            aria-label={`Next week, locked. ${nextWeekTooltip(selectedWeek, durationWeeks, unlockDate)}`}
+            aria-disabled="true"
+            onClick={() => setTipOpen((v) => !v)}
+            className={`${BUTTON_CLASS} cursor-default opacity-40`}
+          >
             ›
           </button>
           <span
             role="tooltip"
-            className="pointer-events-none absolute right-0 top-full z-10 mt-2 whitespace-nowrap rounded-xl bg-ink px-3 py-1.5 text-xs font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+            className={`pointer-events-none absolute right-0 top-full z-10 mt-2 whitespace-nowrap rounded-xl bg-ink px-3 py-1.5 text-xs font-medium text-white shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${
+              tipOpen ? "opacity-100" : "opacity-0"
+            }`}
           >
             {nextWeekTooltip(selectedWeek, durationWeeks, unlockDate)}
           </span>

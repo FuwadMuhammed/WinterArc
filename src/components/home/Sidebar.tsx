@@ -1,10 +1,7 @@
 "use client";
 
-import { useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { joinArcAction } from "@/lib/actions";
-import { track } from "@/lib/analytics";
 import { getArcEndDate, getArcStartDate, taskProgress } from "@/lib/arc-logic";
+import { useJoinArc } from "@/lib/useJoinArc";
 import type { Arc, Task, TaskEntry, UserArc } from "@/lib/database.types";
 
 const DATE_FORMAT: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", year: "numeric" };
@@ -24,9 +21,8 @@ export function Sidebar({
   loggedIn: boolean;
   onOpenAuth: () => void;
 }) {
-  const [pending, startTransition] = useTransition();
-  const router = useRouter();
   const joined = userArc !== null;
+  const { pending, error, handleJoinClick } = useJoinArc(loggedIn, onOpenAuth);
 
   const startLabel = joined
     ? getArcStartDate(userArc).toLocaleDateString("en-US", DATE_FORMAT)
@@ -39,20 +35,35 @@ export function Sidebar({
     entries,
   );
 
-  function handleJoinClick() {
-    if (loggedIn) {
-      startTransition(async () => {
-        await joinArcAction();
-        track("arc_joined");
-        router.refresh();
-      });
-    } else {
-      onOpenAuth();
-    }
-  }
-
   return (
     <div className="space-y-6">
+      {/* Above the fold for a new visitor, and first in the sidebar: the ask
+          to join, with just enough context to say yes, before the details. */}
+      {!joined && (
+        <div className="rounded-3xl border border-border bg-panel px-6 py-6">
+          <p className="font-heading text-lg text-ink">Ready to start your arc?</p>
+          <p className="mt-1.5 text-sm leading-relaxed text-ink-muted">
+            Join free and get your Day 1 tasks, no commitment beyond showing up.
+          </p>
+          <button
+            type="button"
+            onClick={handleJoinClick}
+            disabled={pending}
+            className="mt-4 w-full rounded-full bg-primary py-3.5 text-sm font-semibold text-white transition-check hover:opacity-90 disabled:opacity-60"
+          >
+            {pending ? "Joining…" : "Join the Winter Arc"}
+          </button>
+          {error && (
+            <p role="alert" className="mt-3 text-center text-xs font-medium text-red">
+              {error}
+            </p>
+          )}
+          <p className="mt-3 text-xs text-ink-faint">
+            Reset progress or delete your account anytime from your profile.
+          </p>
+        </div>
+      )}
+
       <div className="rounded-3xl border border-border bg-panel px-6 py-5">
         <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Quick facts</p>
         <dl className="mt-3 space-y-3">
@@ -95,22 +106,6 @@ export function Sidebar({
           </li>
         </ul>
       </div>
-
-      {!joined && (
-        <div>
-          <button
-            type="button"
-            onClick={handleJoinClick}
-            disabled={pending}
-            className="w-full rounded-full bg-primary py-4 text-sm font-semibold text-white transition-check hover:opacity-90 disabled:opacity-60"
-          >
-            {pending ? "Joining…" : "Join the Winter Arc"}
-          </button>
-          <p className="mt-3 text-center text-xs text-ink-faint">
-            Reset progress or delete your account anytime from your profile.
-          </p>
-        </div>
-      )}
     </div>
   );
 }
